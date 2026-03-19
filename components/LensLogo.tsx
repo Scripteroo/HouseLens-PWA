@@ -1,0 +1,14 @@
+"use client";
+
+export default function LensLogo() {
+  return (
+    <div className="flex justify-center -mt-11 relative z-20">
+      <div className="relative">
+        <div className="absolute inset-[-6px] rounded-full bg-blue-400/20 animate-ping" style={{ animationDuration: "3s" }} />
+        <div className="relative w-[84px] h-[84px] rounded-full bg-white shadow-logo flex items-center justify-center border-[3px] border-white overflow-hidden">
+          <img src="/logo.png" alt="HouseLens" className="w-[72px] h-[72px] object-contain" draggable={false} />
+        </div>
+      </div>
+    </div>
+  );
+}
