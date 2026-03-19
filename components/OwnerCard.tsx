@@ -1,11 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Lock, Share2, Smartphone, CreditCard, X, Eye, Loader2, User, Home, DollarSign, FileText, Landmark, MapPin, Building2 } from "lucide-react";
 import { lookupProperty, RealieProperty } from "@/lib/realie";
 
 interface Props {
   address: string;
+  cachedData?: RealieProperty | null;
+  onDataLoaded?: (data: RealieProperty) => void;
 }
 
 function formatMoney(val?: number | null) {
@@ -43,16 +45,28 @@ function Section({ title, icon, children }: { title: string; icon: React.ReactNo
   );
 }
 
-export default function OwnerCard({ address }: Props) {
+export default function OwnerCard({ address, cachedData, onDataLoaded }: Props) {
   const [showPaywall, setShowPaywall] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [property, setProperty] = useState<RealieProperty | null>(null);
+  const [property, setProperty] = useState<RealieProperty | null>(cachedData || null);
   const [error, setError] = useState<string | null>(null);
-  const [unlocked, setUnlocked] = useState(false);
+  const [unlocked, setUnlocked] = useState(!!cachedData);
+
+  // If cachedData changes (e.g. loading a saved property), update state
+  useEffect(() => {
+    if (cachedData) {
+      setProperty(cachedData);
+      setUnlocked(true);
+      setError(null);
+    } else {
+      setProperty(null);
+      setUnlocked(false);
+    }
+  }, [cachedData]);
 
   const handleTap = () => {
     if (navigator.vibrate) navigator.vibrate(10);
-    if (unlocked && property) return; // Already showing data
+    if (unlocked && property) return;
     setShowPaywall(true);
   };
 
@@ -65,6 +79,7 @@ export default function OwnerCard({ address }: Props) {
       if (result) {
         setProperty(result);
         setUnlocked(true);
+        onDataLoaded?.(result);
       } else {
         setError("Property not found. Try editing the address.");
       }
@@ -75,11 +90,10 @@ export default function OwnerCard({ address }: Props) {
     }
   };
 
-  // UNLOCKED VIEW — show all property data
+  // UNLOCKED VIEW
   if (unlocked && property) {
     return (
       <div className="bg-lens-card rounded-2xl shadow-card overflow-hidden">
-        {/* Owner header */}
         <div className="px-5 py-4 bg-gradient-to-r from-lens-accent to-blue-600">
           <p className="text-[11px] font-semibold uppercase tracking-wider text-white/70 mb-1">Owner Information</p>
           <p className="text-[17px] font-bold text-white">{property.ownerName || "Unknown Owner"}</p>
@@ -91,7 +105,6 @@ export default function OwnerCard({ address }: Props) {
         </div>
 
         <div className="px-5 py-4">
-          {/* Property Details */}
           <Section title="Property" icon={<Home className="w-3.5 h-3.5 text-lens-accent" />}>
             <DataRow label="Address" value={property.addressFull} />
             <DataRow label="Parcel ID" value={property.parcelId} />
@@ -110,7 +123,6 @@ export default function OwnerCard({ address }: Props) {
             <DataRow label="Neighborhood" value={property.neighborhood} />
           </Section>
 
-          {/* Valuation */}
           <Section title="Valuation" icon={<DollarSign className="w-3.5 h-3.5 text-lens-accent" />}>
             <DataRow label="Estimated Value" value={formatMoney(property.modelValue)} />
             <DataRow label="Value Range" value={property.modelValueMin && property.modelValueMax ? `${formatMoney(property.modelValueMin)} – ${formatMoney(property.modelValueMax)}` : undefined} />
@@ -121,7 +133,6 @@ export default function OwnerCard({ address }: Props) {
             <DataRow label="Assessed Year" value={property.assessedYear} />
           </Section>
 
-          {/* Taxes */}
           <Section title="Taxes" icon={<FileText className="w-3.5 h-3.5 text-lens-accent" />}>
             <DataRow label="Annual Tax" value={formatMoney(property.taxValue)} />
             <DataRow label="Tax Year" value={property.taxYear} />
@@ -138,7 +149,6 @@ export default function OwnerCard({ address }: Props) {
             )}
           </Section>
 
-          {/* Sales History */}
           {property.transfers && property.transfers.length > 0 && (
             <Section title="Sales History" icon={<Building2 className="w-3.5 h-3.5 text-lens-accent" />}>
               {property.transfers.map((t, i) => (
@@ -154,7 +164,6 @@ export default function OwnerCard({ address }: Props) {
             </Section>
           )}
 
-          {/* Liens & Mortgages */}
           <Section title="Liens & Mortgages" icon={<Landmark className="w-3.5 h-3.5 text-lens-accent" />}>
             <DataRow label="Total Liens" value={property.totalLienCount} />
             <DataRow label="Lien Balance" value={formatMoney(property.totalLienBalance)} />
@@ -163,7 +172,6 @@ export default function OwnerCard({ address }: Props) {
             <DataRow label="LTV Ratio" value={property.LTVCurrentEstCombined ? `${property.LTVCurrentEstCombined.toFixed(1)}%` : undefined} />
           </Section>
 
-          {/* Owner Details */}
           <Section title="Owner Details" icon={<User className="w-3.5 h-3.5 text-lens-accent" />}>
             <DataRow label="Owner Name" value={property.ownerName} />
             <DataRow label="Mailing Address" value={property.ownerAddressLine1} />
@@ -173,7 +181,6 @@ export default function OwnerCard({ address }: Props) {
             <DataRow label="Properties Owned" value={property.ownerParcelCount} />
           </Section>
 
-          {/* Legal */}
           {property.legalDesc && (
             <Section title="Legal" icon={<MapPin className="w-3.5 h-3.5 text-lens-accent" />}>
               <p className="text-[11px] text-lens-secondary leading-relaxed">{property.legalDesc}</p>
@@ -219,7 +226,6 @@ export default function OwnerCard({ address }: Props) {
         </div>
       </div>
 
-      {/* Paywall */}
       {showPaywall && (
         <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50 backdrop-blur-sm" onClick={() => setShowPaywall(false)}>
           <div className="w-full max-w-lg bg-white rounded-t-3xl overflow-hidden animate-slide-up" onClick={(e) => e.stopPropagation()} style={{ paddingBottom: "env(safe-area-inset-bottom, 24px)" }}>
@@ -237,7 +243,6 @@ export default function OwnerCard({ address }: Props) {
                 </div>
               </div>
             </div>
-
             <div className="px-6 space-y-3 pb-6">
               <button onClick={() => { if (navigator.share) { navigator.share({ title: "HouseLens", text: "Check out HouseLens — instant property intelligence from your phone!", url: window.location.href }).catch(() => {}); } handleUnlock(); }} className="w-full flex items-center gap-4 p-4 rounded-2xl border-2 border-lens-accent/20 bg-lens-accent/[0.03] active:scale-[0.98] transition-all" type="button">
                 <div className="w-11 h-11 rounded-xl bg-green-500/10 flex items-center justify-center flex-shrink-0"><Share2 className="w-5 h-5 text-green-600" /></div>
@@ -247,7 +252,6 @@ export default function OwnerCard({ address }: Props) {
                 </div>
                 <span className="text-[12px] font-bold text-green-600 bg-green-50 px-2.5 py-1 rounded-full">FREE</span>
               </button>
-
               <button onClick={handleUnlock} className="w-full flex items-center gap-4 p-4 rounded-2xl border-2 border-lens-border bg-white active:scale-[0.98] transition-all" type="button">
                 <div className="w-11 h-11 rounded-xl bg-blue-500/10 flex items-center justify-center flex-shrink-0"><Smartphone className="w-5 h-5 text-blue-600" /></div>
                 <div className="flex-1 text-left">
@@ -256,7 +260,6 @@ export default function OwnerCard({ address }: Props) {
                 </div>
                 <span className="text-[12px] font-bold text-blue-600 bg-blue-50 px-2.5 py-1 rounded-full">FREE</span>
               </button>
-
               <button onClick={handleUnlock} className="w-full flex items-center gap-4 p-4 rounded-2xl border-2 border-amber-300/50 bg-gradient-to-r from-amber-50/80 to-orange-50/80 active:scale-[0.98] transition-all" type="button">
                 <div className="w-11 h-11 rounded-xl bg-amber-500/10 flex items-center justify-center flex-shrink-0"><CreditCard className="w-5 h-5 text-amber-600" /></div>
                 <div className="flex-1 text-left">

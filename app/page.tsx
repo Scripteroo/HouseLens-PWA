@@ -15,6 +15,7 @@ import { useGeolocation } from "@/hooks/useGeolocation";
 import { useCamera } from "@/hooks/useCamera";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 import { saveProperty as saveToLocal, getPropertyCount, SavedProperty } from "@/lib/storage";
+import { RealieProperty } from "@/lib/realie";
 import { MOCK_SALES_HISTORY, MOCK_TAX_HISTORY, MOCK_LIENS, MOCK_PERMITS } from "@/lib/mock-data";
 
 export default function HomePage() {
@@ -29,6 +30,7 @@ export default function HomePage() {
   const [toast, setToast] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("home");
   const [propertyCount, setPropertyCount] = useState(0);
+  const [realieData, setRealieData] = useState<RealieProperty | null>(null);
 
   const displayAddress = manualAddress
     ? manualAddress
@@ -51,6 +53,7 @@ export default function HomePage() {
 
   const handleAddressSave = (newAddress: string) => {
     setManualAddress(newAddress);
+    setRealieData(null);
     if (navigator.vibrate) navigator.vibrate(10);
     showToast("Address updated!");
   };
@@ -59,6 +62,7 @@ export default function HomePage() {
     setManualAddress(prop.address);
     if (prop.photoUrl) camera.setPhotoUrl(prop.photoUrl);
     if (prop.thumbnailUrl) camera.setThumbnailUrl(prop.thumbnailUrl);
+    setRealieData(prop.realieData || null);
     setActiveTab("home");
     showToast("Property loaded!");
   };
@@ -67,6 +71,7 @@ export default function HomePage() {
     setManualAddress(null);
     camera.setPhotoUrl(null);
     camera.setThumbnailUrl(null);
+    setRealieData(null);
     geo.requestLocation();
     showToast("Ready for new property!");
   };
@@ -113,6 +118,7 @@ export default function HomePage() {
         longitude: geo.longitude,
         photoUrl: camera.photoUrl,
         thumbnailUrl: camera.thumbnailUrl,
+        realieData: realieData,
       });
       const count = await getPropertyCount();
       setPropertyCount(count);
@@ -140,7 +146,7 @@ export default function HomePage() {
     } finally {
       setSaving(false);
     }
-  }, [displayAddress, geo.latitude, geo.longitude, camera.photoUrl, camera.thumbnailUrl]);
+  }, [displayAddress, geo.latitude, geo.longitude, camera.photoUrl, camera.thumbnailUrl, realieData]);
 
   const handleTabChange = (tab: string) => {
     if (tab === "share") { saveToDevice(); return; }
@@ -185,7 +191,9 @@ export default function HomePage() {
           </InfoCard>
         </div>
 
-        <div className="animate-slide-up delay-2"><OwnerCard address={displayAddress} /></div>
+        <div className="animate-slide-up delay-2">
+          <OwnerCard address={displayAddress} cachedData={realieData} onDataLoaded={(data) => setRealieData(data)} />
+        </div>
 
         <div className="animate-slide-up delay-3 flex gap-3">
           <button onClick={savePropertyAction} disabled={saving}
