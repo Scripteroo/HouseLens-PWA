@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import { Pencil, TrendingUp, Receipt, Landmark, HardHat, Loader2, CheckCircle2 } from "lucide-react";
+import { Pencil, TrendingUp, Receipt, Landmark, HardHat, Loader2, CheckCircle2, Download } from "lucide-react";
 import PropertyHero from "@/components/PropertyHero";
 import LensLogo from "@/components/LensLogo";
 import InfoCard from "@/components/InfoCard";
@@ -46,6 +46,58 @@ export default function HomePage() {
     if (navigator.vibrate) navigator.vibrate(10);
     showToast("Address updated!");
   };
+
+  const saveToDevice = useCallback(async () => {
+    if (navigator.vibrate) navigator.vibrate(10);
+
+    const propertyData = {
+      address: displayAddress,
+      latitude: geo.latitude,
+      longitude: geo.longitude,
+      photo: camera.photoUrl ? "(photo attached)" : null,
+      savedAt: new Date().toISOString(),
+    };
+
+    // Try native share (works great on iOS — can save to Notes, Files, etc.)
+    if (navigator.share) {
+      try {
+        const text = `HouseLens Property\n\n📍 ${displayAddress}\n📐 ${geo.latitude?.toFixed(4)}° N, ${Math.abs(geo.longitude || 0).toFixed(4)}° W\n\n💰 Sales History:\n${MOCK_SALES_HISTORY.map(s => `  ${s.date} — ${s.price} (${s.buyer})`).join("\n")}\n\n🏛 Tax History:\n${MOCK_TAX_HISTORY.map(t => `  ${t.year} — Assessed: ${t.assessed}, Tax: ${t.tax}`).join("\n")}`;
+
+        const shareData: ShareData = { title: `Property: ${displayAddress}`, text };
+
+        // If we have a photo, try to share it as a file
+        if (camera.photoUrl) {
+          try {
+            const res = await fetch(camera.photoUrl);
+            const blob = await res.blob();
+            const file = new File([blob], "property.jpg", { type: "image/jpeg" });
+            if (navigator.canShare && navigator.canShare({ files: [file] })) {
+              shareData.files = [file];
+            }
+          } catch {}
+        }
+
+        await navigator.share(shareData);
+        showToast("Saved!");
+        return;
+      } catch (e) {
+        // User cancelled share — that's fine
+        if ((e as Error).name === "AbortError") return;
+      }
+    }
+
+    // Fallback: download as text file
+    const text = `HouseLens Property Report\n\nAddress: ${displayAddress}\nCoordinates: ${geo.latitude?.toFixed(4)}° N, ${Math.abs(geo.longitude || 0).toFixed(4)}° W\nSaved: ${new Date().toLocaleString()}\n\nSales History:\n${MOCK_SALES_HISTORY.map(s => `  ${s.date} — ${s.price} (${s.buyer})`).join("\n")}\n\nTax History:\n${MOCK_TAX_HISTORY.map(t => `  ${t.year} — Assessed: ${t.assessed}, Tax: ${t.tax}`).join("\n")}`;
+
+    const blob = new Blob([text], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `property-${Date.now()}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast("Report downloaded!");
+  }, [displayAddress, geo.latitude, geo.longitude, camera.photoUrl]);
 
   const saveProperty = useCallback(async () => {
     if (navigator.vibrate) navigator.vibrate(15);
@@ -105,7 +157,7 @@ export default function HomePage() {
         onMenuToggle={() => setMenuOpen(true)}
       />
 
-      <LensLogo />
+      <LensLogo onTap={camera.openCamera} />
 
       <div className="px-4 mt-4 space-y-3 max-w-lg mx-auto">
         {/* Address Card */}
@@ -139,15 +191,15 @@ export default function HomePage() {
           <OwnerCard />
         </div>
 
-        {/* Save Button */}
-        <div className="animate-slide-up delay-3">
+        {/* Action Buttons */}
+        <div className="animate-slide-up delay-3 flex gap-3">
           <button
             onClick={saveProperty}
             disabled={saving}
-            className={`w-full py-3.5 rounded-2xl text-[15px] font-semibold transition-all duration-300 active:scale-[0.97] disabled:opacity-70 ${
+            className={`flex-1 py-3.5 rounded-2xl text-[15px] font-semibold transition-all duration-300 active:scale-[0.97] disabled:opacity-70 ${
               saved
                 ? "bg-lens-green text-white shadow-[0_0_20px_rgba(52,199,89,0.3)]"
-                : "bg-lens-accent text-white shadow-card hover:shadow-elevated hover:bg-blue-600"
+                : "bg-lens-accent text-white shadow-card"
             }`}
           >
             {saving ? (
@@ -156,11 +208,18 @@ export default function HomePage() {
               </span>
             ) : saved ? (
               <span className="flex items-center justify-center gap-2">
-                <CheckCircle2 className="w-4 h-4" />Property Saved
+                <CheckCircle2 className="w-4 h-4" />Saved
               </span>
             ) : (
               "Save Property"
             )}
+          </button>
+          <button
+            onClick={saveToDevice}
+            className="w-14 h-[52px] rounded-2xl bg-lens-card shadow-card border border-lens-border flex items-center justify-center active:scale-95 transition-transform"
+            type="button"
+          >
+            <Download className="w-5 h-5 text-lens-accent" />
           </button>
         </div>
 
