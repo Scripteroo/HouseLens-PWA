@@ -52,7 +52,6 @@ export default function OwnerCard({ address, cachedData, onDataLoaded }: Props) 
   const [error, setError] = useState<string | null>(null);
   const [unlocked, setUnlocked] = useState(!!cachedData);
 
-  // If cachedData changes (e.g. loading a saved property), update state
   useEffect(() => {
     if (cachedData) {
       setProperty(cachedData);
@@ -63,12 +62,6 @@ export default function OwnerCard({ address, cachedData, onDataLoaded }: Props) 
       setUnlocked(false);
     }
   }, [cachedData]);
-
-  const handleTap = () => {
-    if (navigator.vibrate) navigator.vibrate(10);
-    if (unlocked && property) return;
-    setShowPaywall(true);
-  };
 
   const handleUnlock = async () => {
     setShowPaywall(false);
@@ -88,6 +81,13 @@ export default function OwnerCard({ address, cachedData, onDataLoaded }: Props) 
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleTap = () => {
+    if (navigator.vibrate) navigator.vibrate(10);
+    if (unlocked && property) return;
+    // TODO: Re-enable paywall for production: setShowPaywall(true);
+    handleUnlock();
   };
 
   // UNLOCKED VIEW
@@ -226,6 +226,7 @@ export default function OwnerCard({ address, cachedData, onDataLoaded }: Props) 
         </div>
       </div>
 
+      {/* PAYWALL — disabled for development, uncomment handleTap's setShowPaywall for production */}
       {showPaywall && (
         <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50 backdrop-blur-sm" onClick={() => setShowPaywall(false)}>
           <div className="w-full max-w-lg bg-white rounded-t-3xl overflow-hidden animate-slide-up" onClick={(e) => e.stopPropagation()} style={{ paddingBottom: "env(safe-area-inset-bottom, 24px)" }}>
