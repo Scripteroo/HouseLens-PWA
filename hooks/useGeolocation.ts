@@ -7,25 +7,28 @@ interface GeoState {
   longitude: number | null;
   accuracy: number | null;
   address: string | null;
+  isUSA: boolean;
   loading: boolean;
   error: string | null;
 }
 
 export function useGeolocation() {
   const [state, setState] = useState<GeoState>({
-    latitude: null, longitude: null, accuracy: null, address: null, loading: true, error: null,
+    latitude: null, longitude: null, accuracy: null, address: null, isUSA: true, loading: true, error: null,
   });
   const watchRef = useRef<number | null>(null);
   const bestRef = useRef<{ lat: number; lng: number; acc: number } | null>(null);
   const resolvedRef = useRef(false);
 
-  const reverseGeocode = useCallback(async (lat: number, lng: number): Promise<string> => {
-    // Try Google Geocoding API first (server-side proxy)
+  const reverseGeocode = useCallback(async (lat: number, lng: number): Promise<{ address: string; isUSA: boolean }> => {
+    // Try Google Geocoding API first
     try {
       const res = await fetch(`/api/geocode?lat=${lat}&lng=${lng}`);
       if (res.ok) {
         const data = await res.json();
-        if (data.formatted) return data.formatted;
+        if (data.formatted) {
+          return { address: data.formatted, isUSA: data.country === "US" };
+        }
       }
     } catch (e) {
       console.warn("Google Geocoding failed, falling back:", e);
@@ -38,6 +41,7 @@ export function useGeolocation() {
         { headers: { "Accept-Language": "en" } }
       );
       const data = await res.json();
+      const isUSA = data.address?.country_code === "us";
       if (data.address) {
         const a = data.address;
         const street = a.house_number ? `${a.house_number} ${a.road || ""}` : a.road || "";
@@ -45,14 +49,14 @@ export function useGeolocation() {
         const stateCode = a.state || "";
         const zip = a.postcode || "";
         const parts = [street.trim(), city, `${stateCode} ${zip}`.trim()].filter(Boolean);
-        if (parts.length > 0) return parts.join(", ");
+        if (parts.length > 0) return { address: parts.join(", "), isUSA };
       }
-      if (data.display_name) return data.display_name.split(", ").slice(0, 4).join(", ");
+      if (data.display_name) return { address: data.display_name.split(", ").slice(0, 4).join(", "), isUSA };
     } catch (e) {
       console.warn("Nominatim failed:", e);
     }
 
-    return `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+    return { address: `${lat.toFixed(6)}, ${lng.toFixed(6)}`, isUSA: false };
   }, []);
 
   const finalize = useCallback(async (lat: number, lng: number, acc: number) => {
@@ -62,8 +66,8 @@ export function useGeolocation() {
       navigator.geolocation.clearWatch(watchRef.current);
       watchRef.current = null;
     }
-    const address = await reverseGeocode(lat, lng);
-    setState({ latitude: lat, longitude: lng, accuracy: acc, address, loading: false, error: null });
+    const result = await reverseGeocode(lat, lng);
+    setState({ latitude: lat, longitude: lng, accuracy: acc, address: result.address, isUSA: result.isUSA, loading: false, error: null });
   }, [reverseGeocode]);
 
   const requestLocation = useCallback(() => {
