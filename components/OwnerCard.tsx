@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Lock, Share2, Smartphone, CreditCard, X, Loader2, User, Home, DollarSign, FileText, Landmark, MapPin, Building2 } from "lucide-react";
+import { Lock, Loader2, User, Home, DollarSign, FileText, Landmark, MapPin, Building2 } from "lucide-react";
 import { lookupProperty, RealieProperty } from "@/lib/realie";
 
 interface Props {
@@ -9,6 +9,7 @@ interface Props {
   cachedData?: RealieProperty | null;
   onDataLoaded?: (data: RealieProperty) => void;
   onLookupStarted?: () => void;
+  triggerLookup?: boolean;
 }
 
 function formatMoney(val?: number | null) {
@@ -46,11 +47,12 @@ function Section({ title, icon, children }: { title: string; icon: React.ReactNo
   );
 }
 
-export default function OwnerCard({ address, cachedData, onDataLoaded, onLookupStarted }: Props) {
+export default function OwnerCard({ address, cachedData, onDataLoaded, onLookupStarted, triggerLookup }: Props) {
   const [loading, setLoading] = useState(false);
   const [property, setProperty] = useState<RealieProperty | null>(cachedData || null);
   const [error, setError] = useState<string | null>(null);
   const [unlocked, setUnlocked] = useState(!!cachedData);
+  const [hasTriggered, setHasTriggered] = useState(false);
 
   useEffect(() => {
     if (cachedData) {
@@ -60,12 +62,14 @@ export default function OwnerCard({ address, cachedData, onDataLoaded, onLookupS
     } else {
       setProperty(null);
       setUnlocked(false);
+      setHasTriggered(false);
     }
   }, [cachedData]);
 
-  // Auto-trigger lookup when address changes and no cached data
+  // Only trigger lookup when explicitly told to (after photo capture)
   useEffect(() => {
-    if (!cachedData && address && !address.includes("Detecting") && !loading && !unlocked) {
+    if (triggerLookup && !hasTriggered && !unlocked && address && !address.includes("Detecting")) {
+      setHasTriggered(true);
       const doLookup = async () => {
         setLoading(true);
         setError(null);
@@ -87,7 +91,7 @@ export default function OwnerCard({ address, cachedData, onDataLoaded, onLookupS
       };
       doLookup();
     }
-  }, [address, cachedData]);
+  }, [triggerLookup, address, hasTriggered, unlocked]);
 
   // UNLOCKED VIEW
   if (unlocked && property) {
@@ -180,7 +184,6 @@ export default function OwnerCard({ address, cachedData, onDataLoaded, onLookupS
             <DataRow label="Properties Owned" value={property.ownerParcelCount} />
           </Section>
 
-          {/* Contact Info Teaser — BatchData integration coming */}
           <div className="mb-5 p-4 rounded-xl border-2 border-dashed border-lens-accent/20 bg-lens-accent/[0.02]">
             <div className="flex items-center gap-2 mb-1">
               <Lock className="w-4 h-4 text-lens-accent" />
@@ -199,28 +202,34 @@ export default function OwnerCard({ address, cachedData, onDataLoaded, onLookupS
     );
   }
 
-  // LOADING / ERROR VIEW
-  return (
-    <div className="bg-lens-card rounded-2xl shadow-card px-5 py-4">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-lens-secondary mb-1.5">Owner</p>
-      {loading ? (
+  // LOADING VIEW
+  if (loading) {
+    return (
+      <div className="bg-lens-card rounded-2xl shadow-card px-5 py-4">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-lens-secondary mb-1.5">Owner</p>
         <div className="flex items-center gap-2 py-3">
           <Loader2 className="w-4 h-4 animate-spin text-lens-accent" />
           <span className="text-[13px] text-lens-accent font-medium">Looking up property data…</span>
         </div>
-      ) : error ? (
-        <div>
-          <p className="text-[13px] text-red-500 font-medium">{error}</p>
-          <button onClick={() => { setError(null); setLoading(false); }} className="text-[12px] text-lens-accent font-medium mt-2" type="button">
-            Try again
-          </button>
-        </div>
-      ) : (
-        <div className="flex items-center gap-2 py-3">
-          <Loader2 className="w-4 h-4 animate-spin text-lens-secondary" />
-          <span className="text-[13px] text-lens-secondary font-medium">Waiting for address…</span>
-        </div>
-      )}
+      </div>
+    );
+  }
+
+  // ERROR VIEW
+  if (error) {
+    return (
+      <div className="bg-lens-card rounded-2xl shadow-card px-5 py-4">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-lens-secondary mb-1.5">Owner</p>
+        <p className="text-[13px] text-red-500 font-medium">{error}</p>
+      </div>
+    );
+  }
+
+  // WAITING VIEW — no photo taken yet
+  return (
+    <div className="bg-lens-card rounded-2xl shadow-card px-5 py-4">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-lens-secondary mb-1.5">Owner</p>
+      <p className="text-[13px] text-lens-secondary">Take a photo to look up property information.</p>
     </div>
   );
 }

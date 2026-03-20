@@ -17,8 +17,8 @@ import { useCamera } from "@/hooks/useCamera";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 import { saveProperty as saveToLocal, getPropertyCount, SavedProperty } from "@/lib/storage";
 import { RealieProperty } from "@/lib/realie";
-import { incrementLookup, dismissNag, grantLookupsForShare, getCreditState } from "@/lib/credits";
-import { MOCK_SALES_HISTORY, MOCK_TAX_HISTORY, MOCK_LIENS, MOCK_PERMITS } from "@/lib/mock-data";
+import { incrementLookup, dismissNag, grantLookupsForShare, getCreditState, updateCreditState } from "@/lib/credits";
+import { MOCK_PERMITS } from "@/lib/mock-data";
 
 function formatMoney(val?: number | null) {
   if (!val) return "—";
@@ -49,6 +49,7 @@ export default function HomePage() {
   const [nagCanDismiss, setNagCanDismiss] = useState(true);
   const [lookupCount, setLookupCount] = useState(0);
   const [lookupBlocked, setLookupBlocked] = useState(false);
+  const [shouldLookup, setShouldLookup] = useState(false);
 
   const displayAddress = manualAddress
     ? manualAddress
@@ -62,10 +63,15 @@ export default function HomePage() {
   };
 
   useEffect(() => { getPropertyCount().then(setPropertyCount); }, []);
-  useEffect(() => { if (camera.photoUrl) showToast("Photo captured!"); }, [camera.photoUrl]);
+  useEffect(() => { getCreditState().then((s) => setLookupCount(s.freeLookupsUsed)); }, []);
+
+  // Trigger lookup when photo is captured
   useEffect(() => {
-    getCreditState().then((s) => setLookupCount(s.freeLookupsUsed));
-  }, []);
+    if (camera.photoUrl && !realieData && !lookupBlocked) {
+      setShouldLookup(true);
+      showToast("Photo captured! Looking up property…");
+    }
+  }, [camera.photoUrl]);
 
   const handleLookupStarted = useCallback(async () => {
     const result = await incrementLookup();
@@ -74,6 +80,7 @@ export default function HomePage() {
       setShowNag(true);
       setNagCanDismiss(!result.forceNag);
       setLookupBlocked(true);
+      setShouldLookup(false);
     }
   }, []);
 
@@ -81,10 +88,9 @@ export default function HomePage() {
     await dismissNag();
     setShowNag(false);
     setLookupBlocked(false);
-    // Grant this one lookup as a freebie on dismiss
     const state = await getCreditState();
-    const { updateCreditState } = await import("@/lib/credits");
     await updateCreditState({ freeLookupsUsed: state.freeLookupsUsed + 1, freeLookupsLimit: state.freeLookupsLimit + 1 });
+    setShouldLookup(true);
   }, []);
 
   const handleShare5 = useCallback(async () => {
@@ -92,18 +98,15 @@ export default function HomePage() {
       try {
         await navigator.share({
           title: "HouseLens — Free Property Intelligence",
-          text: `I just looked up a property on HouseLens and found out it's worth ${realieData?.modelValue ? formatMoney(realieData.modelValue) : "thousands"}! Try it free — look up any property instantly.`,
+          text: `I just looked up a property on HouseLens and found out it's worth ${realieData?.modelValue ? formatMoney(realieData.modelValue) : "thousands"}! Try it free.`,
           url: "https://houselens.io",
         });
-        const granted = await grantLookupsForShare(5);
+        await grantLookupsForShare(5);
         setShowNag(false);
         setLookupBlocked(false);
-        showToast(granted === -1 ? "Unlimited lookups unlocked!" : `+${granted} free lookups!`);
-      } catch (e) {
-        if ((e as Error).name !== "AbortError") {
-          showToast("Share to unlock lookups");
-        }
-      }
+        setShouldLookup(true);
+        showToast("+10 free lookups!");
+      } catch (e) { if ((e as Error).name !== "AbortError") showToast("Share to unlock"); }
     }
   }, [realieData]);
 
@@ -115,20 +118,16 @@ export default function HomePage() {
           text: "Look up any property and instantly see owner info, tax records, valuations, and more. Try HouseLens free!",
           url: "https://houselens.io",
         });
-        const granted = await grantLookupsForShare(10);
+        await grantLookupsForShare(10);
         setShowNag(false);
         setLookupBlocked(false);
-        showToast(granted === -1 ? "Unlimited lookups unlocked!" : `+${granted} free lookups!`);
-      } catch (e) {
-        if ((e as Error).name !== "AbortError") {
-          showToast("Share to unlock lookups");
-        }
-      }
+        setShouldLookup(true);
+        showToast("Unlimited lookups unlocked!");
+      } catch (e) { if ((e as Error).name !== "AbortError") showToast("Share to unlock"); }
     }
   }, []);
 
   const handleGoPro = useCallback(() => {
-    // TODO: Stripe checkout
     showToast("Pro subscriptions coming soon!");
     setShowNag(false);
   }, []);
@@ -136,6 +135,7 @@ export default function HomePage() {
   const handleAddressSave = (newAddress: string) => {
     setManualAddress(newAddress);
     setRealieData(null);
+    setShouldLookup(false);
     if (navigator.vibrate) navigator.vibrate(10);
     showToast("Address updated!");
   };
@@ -145,6 +145,7 @@ export default function HomePage() {
     if (prop.photoUrl) camera.setPhotoUrl(prop.photoUrl);
     if (prop.thumbnailUrl) camera.setThumbnailUrl(prop.thumbnailUrl);
     setRealieData(prop.realieData || null);
+    setShouldLookup(false);
     setActiveTab("home");
     showToast("Property loaded!");
   };
@@ -154,6 +155,7 @@ export default function HomePage() {
     camera.setPhotoUrl(null);
     camera.setThumbnailUrl(null);
     setRealieData(null);
+    setShouldLookup(false);
     setLookupBlocked(false);
     geo.requestLocation();
     showToast("Ready for new property!");
@@ -179,7 +181,7 @@ export default function HomePage() {
       } catch (e) { if ((e as Error).name === "AbortError") return; }
     }
     showToast("Share not supported on this device");
-  }, [displayAddress, geo.latitude, geo.longitude, camera.photoUrl, realieData]);
+  }, [displayAddress, camera.photoUrl, realieData]);
 
   const savePropertyAction = useCallback(async () => {
     if (navigator.vibrate) navigator.vibrate(15);
@@ -199,12 +201,7 @@ export default function HomePage() {
       if (isSupabaseConfigured) {
         const { data: authData } = await supabase.auth.getSession();
         if (!authData.session) { await supabase.auth.signInAnonymously(); }
-        await supabase.from("properties").insert({
-          address: displayAddress,
-          latitude: geo.latitude || 24.5551,
-          longitude: geo.longitude || -81.7800,
-          photo_url: camera.photoUrl || null,
-        });
+        await supabase.from("properties").insert({ address: displayAddress, latitude: geo.latitude || 24.5551, longitude: geo.longitude || -81.7800, photo_url: camera.photoUrl || null });
       }
 
       setSaved(true);
@@ -236,7 +233,7 @@ export default function HomePage() {
   const hasRealSales = !!salesData;
   const taxData = realieData?.assessments && realieData.assessments.length > 0 ? realieData.assessments : null;
   const hasRealTax = !!taxData;
-  const hasRealLiens = realieData && (realieData.totalLienCount !== undefined && realieData.totalLienCount !== null);
+  const hasRealLiens = realieData && realieData.totalLienCount !== undefined && realieData.totalLienCount !== null;
   const lastSale = realieData?.transferPrice ? { date: realieData.transferDate, price: realieData.transferPrice } : null;
 
   if (activeTab === "properties") {
@@ -252,19 +249,10 @@ export default function HomePage() {
     <div className="min-h-screen bg-lens-bg pb-24">
       <SideMenu open={menuOpen} onClose={() => setMenuOpen(false)} onNewSearch={handleNewSearch} />
 
-      {/* Nag Screen */}
       {showNag && (
-        <NagScreen
-          lookupCount={lookupCount}
-          canDismiss={nagCanDismiss}
-          onDismiss={handleNagDismiss}
-          onShare5={handleShare5}
-          onShareContacts={handleShareContacts}
-          onGoPro={handleGoPro}
-        />
+        <NagScreen lookupCount={lookupCount} canDismiss={nagCanDismiss} onDismiss={handleNagDismiss} onShare5={handleShare5} onShareContacts={handleShareContacts} onGoPro={handleGoPro} />
       )}
 
-      {/* Toast */}
       <div className={`fixed top-12 inset-x-0 z-[100] flex justify-center transition-all duration-500 pointer-events-none ${toast ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-4"}`}>
         <div className="bg-lens-text/90 backdrop-blur-lg text-white text-[13px] font-semibold px-5 py-2.5 rounded-full shadow-elevated flex items-center gap-2">
           <CheckCircle2 className="w-4 h-4 text-lens-green" />{toast}
@@ -277,14 +265,12 @@ export default function HomePage() {
       <LensLogo onTap={camera.openCamera} />
 
       <div className="px-4 mt-4 space-y-3 max-w-lg mx-auto">
-        {/* Lookup counter */}
         {lookupCount > 0 && lookupCount <= 10 && (
           <div className="text-center">
-            <span className="text-[11px] text-lens-secondary">{10 - lookupCount} free lookups remaining</span>
+            <span className="text-[11px] text-lens-secondary">{Math.max(0, 10 - lookupCount)} free lookups remaining</span>
           </div>
         )}
 
-        {/* Address */}
         <div className="animate-slide-up delay-1">
           <InfoCard label="Address" icon={<Pencil className="w-4 h-4 text-lens-secondary" />} onIconClick={() => setEditingAddress(true)} tappable>
             <p>{geo.loading && !manualAddress ? (<span className="flex items-center gap-2 text-lens-secondary"><Loader2 className="w-4 h-4 animate-spin" />Detecting location…</span>) : displayAddress}</p>
@@ -297,7 +283,6 @@ export default function HomePage() {
           </InfoCard>
         </div>
 
-        {/* Owner — auto-triggers lookup */}
         {!lookupBlocked && (
           <div className="animate-slide-up delay-2">
             <OwnerCard
@@ -305,11 +290,11 @@ export default function HomePage() {
               cachedData={realieData}
               onDataLoaded={(data) => setRealieData(data)}
               onLookupStarted={handleLookupStarted}
+              triggerLookup={shouldLookup}
             />
           </div>
         )}
 
-        {/* Action Buttons */}
         <div className="animate-slide-up delay-3 flex gap-3">
           <button onClick={savePropertyAction} disabled={saving}
             className={`flex-1 py-3.5 rounded-2xl text-[15px] font-semibold transition-all duration-300 active:scale-[0.97] disabled:opacity-70 ${saved ? "bg-lens-green text-white shadow-[0_0_20px_rgba(52,199,89,0.3)]" : "bg-lens-accent text-white shadow-card"}`}>
@@ -322,108 +307,76 @@ export default function HomePage() {
           </button>
         </div>
 
-        {/* External Links */}
         <div className="animate-slide-up delay-3">
           <div className="flex gap-2">
             <a href={zillowUrl} target="_blank" rel="noopener noreferrer" className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl bg-lens-card shadow-card border border-lens-border active:scale-[0.97] transition-transform">
-              <span className="text-[13px] font-semibold text-blue-600">Zillow</span>
-              <ExternalLink className="w-3.5 h-3.5 text-blue-400" />
+              <span className="text-[13px] font-semibold text-blue-600">Zillow</span><ExternalLink className="w-3.5 h-3.5 text-blue-400" />
             </a>
             <a href={redfinUrl} target="_blank" rel="noopener noreferrer" className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl bg-lens-card shadow-card border border-lens-border active:scale-[0.97] transition-transform">
-              <span className="text-[13px] font-semibold text-red-600">Redfin</span>
-              <ExternalLink className="w-3.5 h-3.5 text-red-400" />
+              <span className="text-[13px] font-semibold text-red-600">Redfin</span><ExternalLink className="w-3.5 h-3.5 text-red-400" />
             </a>
             <a href={googleMapsUrl} target="_blank" rel="noopener noreferrer" className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl bg-lens-card shadow-card border border-lens-border active:scale-[0.97] transition-transform">
-              <span className="text-[13px] font-semibold text-green-600">Street View</span>
-              <ExternalLink className="w-3.5 h-3.5 text-green-400" />
+              <span className="text-[13px] font-semibold text-green-600">Street View</span><ExternalLink className="w-3.5 h-3.5 text-green-400" />
             </a>
           </div>
         </div>
 
-        {/* Sales History */}
-        <div className="animate-slide-up delay-4">
-          <AccordionSection title="Sales History" icon={<TrendingUp className="w-4 h-4" />} badge={`${hasRealSales ? (salesData!.length + (lastSale ? 1 : 0)) : MOCK_SALES_HISTORY.length}`}>
-            <div className="space-y-3">
-              {lastSale && (
-                <div className="flex items-center justify-between py-2 border-b border-lens-border">
-                  <div><p className="text-[13px] font-medium text-lens-text">Most Recent Sale</p><p className="text-[11px] text-lens-secondary">{formatDate(lastSale.date)}</p></div>
-                  <p className="text-[14px] font-semibold text-lens-text">{formatMoney(lastSale.price)}</p>
+        {/* Only show data sections after lookup */}
+        {realieData && (
+          <>
+            <div className="animate-slide-up delay-4">
+              <AccordionSection title="Sales History" icon={<TrendingUp className="w-4 h-4" />} badge={`${hasRealSales ? (salesData!.length + (lastSale ? 1 : 0)) : (lastSale ? 1 : 0)}`}>
+                <div className="space-y-3">
+                  {lastSale && (
+                    <div className="flex items-center justify-between py-2 border-b border-lens-border last:border-0">
+                      <div><p className="text-[13px] font-medium text-lens-text">Most Recent Sale</p><p className="text-[11px] text-lens-secondary">{formatDate(lastSale.date)}</p></div>
+                      <p className="text-[14px] font-semibold text-lens-text">{formatMoney(lastSale.price)}</p>
+                    </div>
+                  )}
+                  {hasRealSales && salesData!.map((t, i) => (
+                    <div key={i} className="flex items-center justify-between py-2 border-b border-lens-border last:border-0">
+                      <div><p className="text-[13px] font-medium text-lens-text">{t.grantee || "—"}</p><p className="text-[11px] text-lens-secondary">{formatDate(t.transferDate)}{t.grantor ? ` · from ${t.grantor}` : ""}</p></div>
+                      <p className="text-[14px] font-semibold text-lens-text">{formatMoney(t.transferPrice)}</p>
+                    </div>
+                  ))}
                 </div>
-              )}
-              {hasRealSales ? salesData!.map((t, i) => (
-                <div key={i} className="flex items-center justify-between py-2 border-b border-lens-border last:border-0">
-                  <div><p className="text-[13px] font-medium text-lens-text">{t.grantee || "—"}</p><p className="text-[11px] text-lens-secondary">{formatDate(t.transferDate)}{t.grantor ? ` · from ${t.grantor}` : ""}</p></div>
-                  <p className="text-[14px] font-semibold text-lens-text">{formatMoney(t.transferPrice)}</p>
-                </div>
-              )) : !lastSale ? MOCK_SALES_HISTORY.map((sale, i) => (
-                <div key={i} className="flex items-center justify-between py-2 border-b border-lens-border last:border-0">
-                  <div><p className="text-[13px] font-medium text-lens-text">{sale.buyer}</p><p className="text-[11px] text-lens-secondary">{sale.date}</p></div>
-                  <p className="text-[14px] font-semibold text-lens-text">{sale.price}</p>
-                </div>
-              )) : null}
+              </AccordionSection>
             </div>
-          </AccordionSection>
-        </div>
 
-        {/* Tax History */}
-        <div className="animate-slide-up delay-5">
-          <AccordionSection title="Tax History" icon={<Receipt className="w-4 h-4" />} badge={hasRealTax ? `${taxData!.length + 1}` : undefined}>
-            <div className="space-y-3">
-              {realieData?.taxValue ? (
-                <>
-                  <div className="flex items-center justify-between py-2 border-b border-lens-border">
-                    <div><p className="text-[13px] font-medium text-lens-text">{realieData.taxYear || "Current"}</p><p className="text-[11px] text-lens-secondary">Assessed: {formatMoney(realieData.totalAssessedValue)}</p></div>
-                    <p className="text-[14px] font-semibold text-lens-text">{formatMoney(realieData.taxValue)}</p>
-                  </div>
+            <div className="animate-slide-up delay-5">
+              <AccordionSection title="Tax History" icon={<Receipt className="w-4 h-4" />} badge={hasRealTax ? `${taxData!.length + 1}` : "1"}>
+                <div className="space-y-3">
+                  {realieData.taxValue && (
+                    <div className="flex items-center justify-between py-2 border-b border-lens-border">
+                      <div><p className="text-[13px] font-medium text-lens-text">{realieData.taxYear || "Current"}</p><p className="text-[11px] text-lens-secondary">Assessed: {formatMoney(realieData.totalAssessedValue)}</p></div>
+                      <p className="text-[14px] font-semibold text-lens-text">{formatMoney(realieData.taxValue)}</p>
+                    </div>
+                  )}
                   {taxData?.map((a, i) => (
                     <div key={i} className="flex items-center justify-between py-2 border-b border-lens-border last:border-0">
                       <div><p className="text-[13px] font-medium text-lens-text">{a.assessedYear || a.taxYear}</p><p className="text-[11px] text-lens-secondary">Assessed: {formatMoney(a.totalAssessedValue)}</p></div>
                       <p className="text-[14px] font-semibold text-lens-text">{formatMoney(a.taxValue)}</p>
                     </div>
                   ))}
-                </>
-              ) : MOCK_TAX_HISTORY.map((tax, i) => (
-                <div key={i} className="flex items-center justify-between py-2 border-b border-lens-border last:border-0">
-                  <div><p className="text-[13px] font-medium text-lens-text">{tax.year}</p><p className="text-[11px] text-lens-secondary">Assessed: {tax.assessed}</p></div>
-                  <p className="text-[14px] font-semibold text-lens-text">{tax.tax}</p>
                 </div>
-              ))}
+              </AccordionSection>
             </div>
-          </AccordionSection>
-        </div>
 
-        {/* Liens */}
-        <div className="animate-slide-up delay-5">
-          <AccordionSection title="Liens & Mortgages" icon={<Landmark className="w-4 h-4" />} badge={hasRealLiens ? `${realieData!.totalLienCount}` : `${MOCK_LIENS.length}`}>
-            <div className="space-y-3">
-              {hasRealLiens ? (
-                <div className="space-y-2">
-                  <div className="flex justify-between py-1.5 border-b border-lens-border/50"><span className="text-[12px] text-lens-secondary">Total Liens</span><span className="text-[13px] font-medium text-lens-text">{realieData!.totalLienCount}</span></div>
-                  <div className="flex justify-between py-1.5 border-b border-lens-border/50"><span className="text-[12px] text-lens-secondary">Lien Balance</span><span className="text-[13px] font-medium text-lens-text">{formatMoney(realieData!.totalLienBalance)}</span></div>
-                  {realieData!.lenderName && <div className="flex justify-between py-1.5 border-b border-lens-border/50"><span className="text-[12px] text-lens-secondary">Lender</span><span className="text-[13px] font-medium text-lens-text">{realieData!.lenderName}</span></div>}
-                  <div className="flex justify-between py-1.5 border-b border-lens-border/50"><span className="text-[12px] text-lens-secondary">Estimated Equity</span><span className="text-[13px] font-medium text-lens-text">{formatMoney(realieData!.equityCurrentEstBal)}</span></div>
-                  {realieData!.LTVCurrentEstCombined && <div className="flex justify-between py-1.5"><span className="text-[12px] text-lens-secondary">LTV Ratio</span><span className="text-[13px] font-medium text-lens-text">{realieData!.LTVCurrentEstCombined.toFixed(1)}%</span></div>}
-                </div>
-              ) : MOCK_LIENS.map((lien, i) => (
-                <div key={i} className="py-2"><div className="flex items-center justify-between"><p className="text-[13px] font-medium text-lens-text">{lien.type}</p><p className="text-[14px] font-semibold text-lens-text">{lien.amount}</p></div><p className="text-[11px] text-lens-secondary mt-0.5">{lien.lender} · {lien.date}</p></div>
-              ))}
-            </div>
-          </AccordionSection>
-        </div>
-
-        {/* Building Permits */}
-        <div className="animate-slide-up delay-6">
-          <AccordionSection title="Building Permits" icon={<HardHat className="w-4 h-4" />} badge={`${MOCK_PERMITS.length}`}>
-            <div className="space-y-3">
-              {MOCK_PERMITS.map((permit, i) => (
-                <div key={i} className="py-2 border-b border-lens-border last:border-0">
-                  <div className="flex items-center justify-between"><p className="text-[13px] font-medium text-lens-text">{permit.type}</p><span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${permit.status === "Completed" ? "bg-lens-green/10 text-lens-green" : "bg-yellow-100 text-yellow-700"}`}>{permit.status}</span></div>
-                  <p className="text-[11px] text-lens-secondary mt-0.5">{permit.number} · {permit.date}</p>
-                </div>
-              ))}
-            </div>
-          </AccordionSection>
-        </div>
+            {hasRealLiens && (
+              <div className="animate-slide-up delay-5">
+                <AccordionSection title="Liens & Mortgages" icon={<Landmark className="w-4 h-4" />} badge={`${realieData.totalLienCount}`}>
+                  <div className="space-y-2">
+                    <div className="flex justify-between py-1.5 border-b border-lens-border/50"><span className="text-[12px] text-lens-secondary">Total Liens</span><span className="text-[13px] font-medium text-lens-text">{realieData.totalLienCount}</span></div>
+                    <div className="flex justify-between py-1.5 border-b border-lens-border/50"><span className="text-[12px] text-lens-secondary">Lien Balance</span><span className="text-[13px] font-medium text-lens-text">{formatMoney(realieData.totalLienBalance)}</span></div>
+                    {realieData.lenderName && <div className="flex justify-between py-1.5 border-b border-lens-border/50"><span className="text-[12px] text-lens-secondary">Lender</span><span className="text-[13px] font-medium text-lens-text">{realieData.lenderName}</span></div>}
+                    <div className="flex justify-between py-1.5 border-b border-lens-border/50"><span className="text-[12px] text-lens-secondary">Estimated Equity</span><span className="text-[13px] font-medium text-lens-text">{formatMoney(realieData.equityCurrentEstBal)}</span></div>
+                    {realieData.LTVCurrentEstCombined && <div className="flex justify-between py-1.5"><span className="text-[12px] text-lens-secondary">LTV Ratio</span><span className="text-[13px] font-medium text-lens-text">{realieData.LTVCurrentEstCombined.toFixed(1)}%</span></div>}
+                  </div>
+                </AccordionSection>
+              </div>
+            )}
+          </>
+        )}
       </div>
 
       <AddressEditor address={displayAddress} open={editingAddress} onClose={() => setEditingAddress(false)} onSave={handleAddressSave} />
