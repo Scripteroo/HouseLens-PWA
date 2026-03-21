@@ -50,6 +50,20 @@ export default function HomePage() {
   const [lookupCount, setLookupCount] = useState(0);
   const [lookupBlocked, setLookupBlocked] = useState(false);
   const [shouldLookup, setShouldLookup] = useState(false);
+  const [isPWA, setIsPWA] = useState(false);
+  const [showInstallPrompt, setShowInstallPrompt] = useState(false);
+
+  // Detect if running as installed PWA
+  useEffect(() => {
+    const isStandalone = window.matchMedia("(display-mode: standalone)").matches
+      || (navigator as any).standalone === true;
+    setIsPWA(isStandalone);
+  }, []);
+
+  const handleRequestInstall = useCallback(() => {
+    setShowInstallPrompt(true);
+    if (navigator.vibrate) navigator.vibrate(10);
+  }, []);
 
   const displayAddress = manualAddress
     ? manualAddress
@@ -298,19 +312,16 @@ useEffect(() => {
               onDataLoaded={(data) => setRealieData(data)}
               onLookupStarted={handleLookupStarted}
               triggerLookup={shouldLookup}
+              isPWA={isPWA}
+              onRequestInstall={handleRequestInstall}
             />
           </div>
         )}
 
-        <div className="animate-slide-up delay-3 flex gap-3">
-          <button onClick={savePropertyAction} disabled={saving}
-            className={`flex-1 py-3.5 rounded-2xl text-[15px] font-semibold transition-all duration-300 active:scale-[0.97] disabled:opacity-70 ${saved ? "bg-lens-green text-white shadow-[0_0_20px_rgba(52,199,89,0.3)]" : "bg-lens-accent text-white shadow-card"}`}>
-            {saving ? (<span className="flex items-center justify-center gap-2"><Loader2 className="w-4 h-4 animate-spin" />Saving…</span>)
-              : saved ? (<span className="flex items-center justify-center gap-2"><CheckCircle2 className="w-4 h-4" />Saved</span>)
-              : "Save Property"}
-          </button>
-          <button onClick={saveToDevice} className="w-14 h-[52px] rounded-2xl bg-lens-card shadow-card border border-lens-border flex items-center justify-center active:scale-95 transition-transform" type="button">
-            <Download className="w-5 h-5 text-lens-accent" />
+<div className="animate-slide-up delay-3 flex gap-3">
+          <button onClick={saveToDevice} className="flex-1 py-3.5 rounded-2xl text-[15px] font-semibold bg-lens-card shadow-card border border-lens-border text-lens-text active:scale-[0.97] transition-all flex items-center justify-center gap-2">
+            <Download className="w-4 h-4 text-lens-accent" />
+            Share Property
           </button>
         </div>
 
@@ -385,7 +396,49 @@ useEffect(() => {
           </>
         )}
       </div>
-
+{/* PWA Install Prompt */}
+{showInstallPrompt && (
+        <div className="fixed inset-0 z-[200] bg-black/60 backdrop-blur-sm flex items-end justify-center" onClick={() => setShowInstallPrompt(false)}>
+          <div className="bg-white rounded-t-3xl w-full max-w-lg p-6 pb-10 animate-slide-up" onClick={e => e.stopPropagation()}>
+            <div className="w-10 h-1 bg-gray-300 rounded-full mx-auto mb-4" />
+            <div className="text-center mb-4">
+              <div className="w-16 h-16 mx-auto mb-3 rounded-2xl bg-gradient-to-br from-lens-accent to-blue-600 flex items-center justify-center shadow-lg">
+                <img src="/logo.png" alt="HouseLens" className="w-10 h-10 rounded-lg" />
+              </div>
+              <h3 className="text-[18px] font-bold text-gray-900">Install HouseLens</h3>
+              <p className="text-[13px] text-gray-500 mt-1">Add to your home screen for the full experience + 1 free owner contact lookup!</p>
+            </div>
+            <div className="bg-gray-50 rounded-2xl p-4 mb-4">
+              <p className="text-[13px] font-semibold text-gray-700 mb-2">On iPhone:</p>
+              <div className="flex items-start gap-2 mb-1.5">
+                <span className="text-[12px] text-gray-500">1.</span>
+                <p className="text-[12px] text-gray-600">Tap the <span className="font-semibold">Share</span> button <span className="inline-block w-4 h-4 align-middle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4 text-lens-accent inline"><path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8M16 6l-4-4-4 4M12 2v13"/></svg></span> at the bottom</p>
+              </div>
+              <div className="flex items-start gap-2 mb-1.5">
+                <span className="text-[12px] text-gray-500">2.</span>
+                <p className="text-[12px] text-gray-600">Scroll down, tap <span className="font-semibold">"Add to Home Screen"</span></p>
+              </div>
+              <div className="flex items-start gap-2">
+                <span className="text-[12px] text-gray-500">3.</span>
+                <p className="text-[12px] text-gray-600">Tap <span className="font-semibold">"Add"</span> — then reopen HouseLens from your home screen</p>
+              </div>
+            </div>
+            <div className="bg-gray-50 rounded-2xl p-4 mb-4">
+              <p className="text-[13px] font-semibold text-gray-700 mb-2">On Android:</p>
+              <div className="flex items-start gap-2">
+                <span className="text-[12px] text-gray-500">1.</span>
+                <p className="text-[12px] text-gray-600">Tap <span className="font-semibold">⋮ menu → "Install app"</span> or <span className="font-semibold">"Add to Home Screen"</span></p>
+              </div>
+            </div>
+            <button
+              onClick={() => setShowInstallPrompt(false)}
+              className="w-full py-3.5 rounded-2xl bg-lens-accent text-white text-[15px] font-semibold active:scale-[0.97] transition-all"
+            >
+              Got it!
+            </button>
+          </div>
+        </div>
+      )}
       <AddressEditor address={displayAddress} open={editingAddress} onClose={() => setEditingAddress(false)} onSave={handleAddressSave} />
       <BottomNav active="home" onTabChange={handleTabChange} propertyCount={propertyCount} />
     </div>

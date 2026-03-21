@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Lock, Loader2, User, Home, DollarSign, FileText, Landmark, MapPin, Building2, Phone, Mail } from "lucide-react";
+import { Loader2, User, Home, DollarSign, FileText, Landmark, MapPin, Building2, Phone, Mail, ChevronDown, ChevronUp, Download, Shield } from "lucide-react";
 import { lookupProperty, RealieProperty } from "@/lib/realie";
 import { skipTrace, SkipTraceResult } from "@/lib/skiptrace";
+import { useSkipTraceCredit, getCreditState, grantSkipTraceCredits } from "@/lib/credits";
 
 interface Props {
   address: string;
@@ -11,6 +12,8 @@ interface Props {
   onDataLoaded?: (data: RealieProperty) => void;
   onLookupStarted?: () => void;
   triggerLookup?: boolean;
+  isPWA?: boolean;
+  onRequestInstall?: () => void;
 }
 
 function formatMoney(val?: number | null) {
@@ -43,14 +46,18 @@ function DataRow({ label, value }: { label: string; value?: string | number | bo
   );
 }
 
-function Section({ title, icon, children }: { title: string; icon: React.ReactNode; children: React.ReactNode }) {
+function Section({ title, icon, children, defaultOpen = false }: { title: string; icon: React.ReactNode; children: React.ReactNode; defaultOpen?: boolean }) {
+  const [open, setOpen] = useState(defaultOpen);
   return (
-    <div className="mb-5">
-      <div className="flex items-center gap-2 mb-2">
-        <div className="w-6 h-6 rounded-md bg-lens-accent/10 flex items-center justify-center">{icon}</div>
-        <h4 className="text-[13px] font-bold text-lens-text uppercase tracking-wider">{title}</h4>
-      </div>
-      <div className="bg-lens-bg/60 rounded-xl px-4 py-2">{children}</div>
+    <div className="mb-3">
+      <button onClick={() => setOpen(!open)} className="w-full flex items-center justify-between py-2">
+        <div className="flex items-center gap-2">
+          <div className="w-6 h-6 rounded-md bg-lens-accent/10 flex items-center justify-center">{icon}</div>
+          <h4 className="text-[13px] font-bold text-lens-text uppercase tracking-wider">{title}</h4>
+        </div>
+        {open ? <ChevronUp className="w-4 h-4 text-lens-secondary" /> : <ChevronDown className="w-4 h-4 text-lens-secondary" />}
+      </button>
+      {open && <div className="bg-lens-bg/60 rounded-xl px-4 py-2 mt-1">{children}</div>}
     </div>
   );
 }
@@ -67,14 +74,23 @@ function parseAddressParts(fullAddress: string) {
   return { street, city, state, zip };
 }
 
-export default function OwnerCard({ address, cachedData, onDataLoaded, onLookupStarted, triggerLookup }: Props) {
+export default function OwnerCard({ address, cachedData, onDataLoaded, onLookupStarted, triggerLookup, isPWA, onRequestInstall }: Props) {
   const [loading, setLoading] = useState(false);
   const [property, setProperty] = useState<RealieProperty | null>(cachedData || null);
   const [error, setError] = useState<string | null>(null);
   const [unlocked, setUnlocked] = useState(!!cachedData);
   const [hasTriggered, setHasTriggered] = useState(false);
+
+  // Skip trace state
   const [skipTraceData, setSkipTraceData] = useState<SkipTraceResult | null>(null);
   const [skipTraceLoading, setSkipTraceLoading] = useState(false);
+  const [contactOpen, setContactOpen] = useState(false);
+  const [skipCredits, setSkipCredits] = useState(0);
+  const [showShareGate, setShowShareGate] = useState(false);
+
+  useEffect(() => {
+    getCreditState().then(s => setSkipCredits(s.skipTraceCredits));
+  }, []);
 
   useEffect(() => {
     if (cachedData) {
@@ -86,9 +102,11 @@ export default function OwnerCard({ address, cachedData, onDataLoaded, onLookupS
       setUnlocked(false);
       setHasTriggered(false);
       setSkipTraceData(null);
+      setContactOpen(false);
     }
   }, [cachedData]);
 
+  // Realie lookup (property data only, no skip trace)
   useEffect(() => {
     if (triggerLookup && !hasTriggered && !unlocked && address && !address.includes("Detecting")) {
       setHasTriggered(true);
@@ -102,21 +120,6 @@ export default function OwnerCard({ address, cachedData, onDataLoaded, onLookupS
             setProperty(result);
             setUnlocked(true);
             onDataLoaded?.(result);
-
-            // Auto-trigger skip trace
-            if (result.ownerName) {
-              setSkipTraceLoading(true);
-              const parsed = parseAddressParts(address);
-              const st = await skipTrace(
-                result.ownerName,
-                result.address || parsed.street,
-                result.city || parsed.city,
-                result.state || parsed.state,
-                String(result.zip || "") || parsed.zip
-              );
-              setSkipTraceData(st);
-              setSkipTraceLoading(false);
-            }
           } else {
             setError("Property not found. Try editing the address.");
           }
@@ -130,9 +133,65 @@ export default function OwnerCard({ address, cachedData, onDataLoaded, onLookupS
     }
   }, [triggerLookup, address, hasTriggered, unlocked]);
 
+  // Handle skip trace button
+  const handleSkipTrace = async () => {
+    if (!property) return;
+
+    // Check if PWA is installed
+    if (!isPWA) {
+      onRequestInstall?.();
+      return;
+    }
+
+    // Check credits
+    const hasCredit = await useSkipTraceCredit();
+    if (!hasCredit) {
+      setShowShareGate(true);
+      return;
+    }
+
+    setSkipTraceLoading(true);
+    setContactOpen(true);
+    const parsed = parseAddressParts(address);
+    const st = await skipTrace(
+      property.ownerName || "",
+      property.address || parsed.street,
+      property.city || parsed.city,
+      property.state || parsed.state,
+      String(property.zip || "") || parsed.zip
+    );
+    setSkipTraceData(st);
+    setSkipTraceLoading(false);
+    const credits = await getCreditState();
+    setSkipCredits(credits.skipTraceCredits);
+  };
+
+  const handleShareForCredits = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: "HouseLens — Instant Property Intelligence",
+          text: `I just looked up a property on HouseLens and found the owner's phone number instantly! Try it free.`,
+          url: "https://houselens.io",
+        });
+        await grantSkipTraceCredits(3);
+        setShowShareGate(false);
+        setSkipCredits((await getCreditState()).skipTraceCredits);
+        // Auto-trigger after sharing
+        handleSkipTrace();
+      } catch (e) {
+        if ((e as Error).name !== "AbortError") {
+          // Share failed
+        }
+      }
+    }
+  };
+
+  // UNLOCKED VIEW (property data loaded)
   if (unlocked && property) {
     return (
       <div className="bg-lens-card rounded-2xl shadow-card overflow-hidden">
+        {/* Owner header */}
         <div className="px-5 py-4 bg-gradient-to-r from-lens-accent to-blue-600">
           <p className="text-[11px] font-semibold uppercase tracking-wider text-white/70 mb-1">Owner Information</p>
           <p className="text-[17px] font-bold text-white">{property.ownerName || "Unknown Owner"}</p>
@@ -144,45 +203,109 @@ export default function OwnerCard({ address, cachedData, onDataLoaded, onLookupS
         </div>
 
         <div className="px-5 py-4">
-          {skipTraceLoading ? (
-            <div className="mb-5 p-4 rounded-xl bg-lens-accent/[0.03] border border-lens-accent/10">
+          {/* Skip Trace Button or Results */}
+          {!skipTraceData && !skipTraceLoading && !contactOpen && (
+            <>
+              {showShareGate ? (
+                <div className="mb-5 p-4 rounded-2xl bg-gradient-to-br from-orange-50 to-amber-50 border border-orange-200">
+                  <p className="text-[14px] font-bold text-gray-800 mb-1">Want more owner lookups?</p>
+                  <p className="text-[12px] text-gray-600 mb-3">Share HouseLens with friends to unlock 3 more contact lookups.</p>
+                  <button
+                    onClick={handleShareForCredits}
+                    className="w-full py-3 rounded-xl bg-gradient-to-r from-orange-500 to-orange-600 text-white text-[14px] font-bold shadow-lg active:scale-[0.97] transition-all"
+                  >
+                    Share & Unlock 3 Lookups
+                  </button>
+                  <p className="text-[11px] text-gray-400 text-center mt-2">or Go Pro for unlimited — coming soon</p>
+                </div>
+              ) : (
+                <button
+                  onClick={handleSkipTrace}
+                  className="w-full mb-5 py-4 rounded-2xl bg-gradient-to-r from-orange-500 to-orange-600 text-white text-[15px] font-bold shadow-[0_4px_15px_rgba(249,115,22,0.4)] active:scale-[0.97] transition-all flex items-center justify-center gap-2"
+                >
+                  <Phone className="w-5 h-5" />
+                  {!isPWA ? "Install App to Unlock Owner Contact" : "Find Owner Phone & Email"}
+                </button>
+              )}
+            </>
+          )}
+
+          {/* Skip trace loading */}
+          {skipTraceLoading && (
+            <div className="mb-5 p-4 rounded-xl bg-orange-50 border border-orange-200">
               <div className="flex items-center gap-2">
-                <Loader2 className="w-4 h-4 animate-spin text-lens-accent" />
-                <p className="text-[13px] text-lens-accent font-medium">Finding contact information…</p>
+                <Loader2 className="w-4 h-4 animate-spin text-orange-500" />
+                <p className="text-[13px] text-orange-600 font-medium">Finding owner contact information…</p>
               </div>
             </div>
-          ) : skipTraceData && (skipTraceData.phones.length > 0 || skipTraceData.emails.length > 0) ? (
-            <Section title="Contact Info" icon={<Phone className="w-3.5 h-3.5 text-lens-accent" />}>
-              {skipTraceData.phones.map((p, i) => (
-                <div key={i} className="flex justify-between items-center py-2 border-b border-lens-border/50 last:border-0">
-                  <div className="flex items-center gap-2">
-                    <Phone className={`w-3.5 h-3.5 ${p.dnc ? "text-red-400" : "text-lens-secondary"}`} />
-                    <div>
-                      <a href={`tel:${p.number}`} className="text-[14px] font-semibold text-lens-accent">
-                        {formatPhone(p.number)}
-                      </a>
-                      {p.carrier && <p className="text-[10px] text-lens-secondary">{p.carrier}</p>}
+          )}
+
+          {/* Skip trace results — accordion */}
+          {skipTraceData && (skipTraceData.phones.length > 0 || skipTraceData.emails.length > 0) && (
+            <div className="mb-5 rounded-2xl border-2 border-orange-200 overflow-hidden">
+              <button
+                onClick={() => setContactOpen(!contactOpen)}
+                className="w-full px-4 py-3 bg-gradient-to-r from-orange-50 to-amber-50 flex items-center justify-between"
+              >
+                <div className="flex items-center gap-2">
+                  <Phone className="w-4 h-4 text-orange-500" />
+                  <span className="text-[14px] font-bold text-gray-800">
+                    Owner Contact Info
+                  </span>
+                  <span className="text-[11px] bg-orange-500 text-white px-2 py-0.5 rounded-full font-semibold">
+                    {skipTraceData.phones.length + skipTraceData.emails.length}
+                  </span>
+                </div>
+                {contactOpen ? <ChevronUp className="w-4 h-4 text-orange-400" /> : <ChevronDown className="w-4 h-4 text-orange-400" />}
+              </button>
+
+              {contactOpen && (
+                <div className="px-4 py-3 bg-white">
+                  {skipTraceData.phones.map((p, i) => (
+                    <div key={i} className="flex justify-between items-center py-2.5 border-b border-lens-border/50 last:border-0">
+                      <div className="flex items-center gap-2">
+                        <Phone className={`w-3.5 h-3.5 ${p.dnc ? "text-red-400" : "text-green-500"}`} />
+                        <div>
+                          <a href={`tel:${p.number}`} className="text-[15px] font-bold text-lens-accent">
+                            {formatPhone(p.number)}
+                          </a>
+                          {p.carrier && <p className="text-[10px] text-lens-secondary">{p.carrier}</p>}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        {p.dnc && <span className="text-[9px] uppercase font-bold text-red-500 bg-red-50 px-1.5 py-0.5 rounded-full">DNC</span>}
+                        {p.type && <span className="text-[10px] uppercase font-semibold text-lens-secondary bg-lens-bg px-2 py-0.5 rounded-full">{p.type}</span>}
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    {p.dnc && <span className="text-[9px] uppercase font-bold text-red-500 bg-red-50 px-1.5 py-0.5 rounded-full">DNC</span>}
-                    {p.type && <span className="text-[10px] uppercase font-semibold text-lens-secondary bg-lens-bg px-2 py-0.5 rounded-full">{p.type}</span>}
+                  ))}
+                  {skipTraceData.emails.map((e, i) => (
+                    <div key={i} className="flex items-center gap-2 py-2.5 border-b border-lens-border/50 last:border-0">
+                      <Mail className="w-3.5 h-3.5 text-lens-secondary" />
+                      <a href={`mailto:${e.email}`} className="text-[14px] font-medium text-lens-accent">{e.email}</a>
+                    </div>
+                  ))}
+
+                  {/* Criminal Background Check upsell */}
+                  <div className="mt-3 pt-3 border-t border-lens-border">
+                    <button className="w-full py-3 rounded-xl bg-gradient-to-r from-gray-700 to-gray-900 text-white text-[13px] font-semibold flex items-center justify-center gap-2 active:scale-[0.97] transition-all opacity-90">
+                      <Shield className="w-4 h-4" />
+                      Run Background Check — 2 credits
+                    </button>
+                    <p className="text-[10px] text-lens-secondary text-center mt-1">Criminal records, warrants, liens & more</p>
                   </div>
                 </div>
-              ))}
-              {skipTraceData.emails.map((e, i) => (
-                <div key={i} className="flex items-center gap-2 py-2 border-b border-lens-border/50 last:border-0">
-                  <Mail className="w-3.5 h-3.5 text-lens-secondary" />
-                  <a href={`mailto:${e.email}`} className="text-[13px] font-medium text-lens-accent">{e.email}</a>
-                </div>
-              ))}
-            </Section>
-          ) : skipTraceData ? (
+              )}
+            </div>
+          )}
+
+          {/* Skip trace miss */}
+          {skipTraceData && skipTraceData.phones.length === 0 && skipTraceData.emails.length === 0 && (
             <div className="mb-5 p-4 rounded-xl bg-amber-50 border border-amber-200">
               <p className="text-[12px] text-amber-700 font-medium">No contact info found for this owner.</p>
             </div>
-          ) : null}
+          )}
 
+          {/* Property data sections — all accordion */}
           <Section title="Property" icon={<Home className="w-3.5 h-3.5 text-lens-accent" />}>
             <DataRow label="Address" value={property.addressFull} />
             <DataRow label="Parcel ID" value={property.parcelId} />
