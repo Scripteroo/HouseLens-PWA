@@ -112,7 +112,7 @@ export default function OwnerCard({ address, cachedData, onDataLoaded, onLookupS
                 result.address || parsed.street,
                 result.city || parsed.city,
                 result.state || parsed.state,
-                result.zip || parsed.zip
+                String(result.zip || "") || parsed.zip
               );
               setSkipTraceData(st);
               setSkipTraceLoading(false);
