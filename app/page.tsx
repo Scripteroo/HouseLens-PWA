@@ -15,6 +15,7 @@ import PropertiesList from "@/components/PropertiesList";
 import SettingsPage from "@/components/SettingsPage";
 import NagScreen from "@/components/NagScreen";
 import OnboardingScreen from "@/components/OnboardingScreen";
+import DesktopLanding from "@/components/DesktopLanding";
 import { useGeolocation } from "@/hooks/useGeolocation";
 import { useCamera } from "@/hooks/useCamera";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
@@ -62,8 +63,9 @@ export default function HomePage() {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [lastRefreshCoords, setLastRefreshCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [editPulse, setEditPulse] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(false);
 
-  // Detect if running as installed PWA + onboarding check
+  // Detect device type, PWA, and onboarding
   useEffect(() => {
     const isStandalone = window.matchMedia("(display-mode: standalone)").matches
       || (navigator as any).standalone === true;
@@ -71,6 +73,15 @@ export default function HomePage() {
     if (localStorage.getItem("hl_onboarded") !== "1") {
       setShowOnboarding(true);
     }
+    const checkDevice = () => {
+      const ua = navigator.userAgent.toLowerCase();
+      const isMobile = /iphone|ipad|ipod|android|webos|blackberry|windows phone|opera mini|iemobile/i.test(ua);
+      const isNarrowScreen = window.innerWidth < 768;
+      setIsDesktop(!isMobile && !isNarrowScreen);
+    };
+    checkDevice();
+    window.addEventListener("resize", checkDevice);
+    return () => window.removeEventListener("resize", checkDevice);
   }, []);
 
   const handleRequestInstall = useCallback(() => {
@@ -315,7 +326,8 @@ useEffect(() => {
 
   return (
     <div className="min-h-screen bg-lens-bg pb-24">
-      {showOnboarding && <OnboardingScreen onComplete={() => setShowOnboarding(false)} />}
+      {isDesktop && <DesktopLanding />}
+      {showOnboarding && !isDesktop && <OnboardingScreen onComplete={() => setShowOnboarding(false)} />}
       <SideMenu open={menuOpen} onClose={() => setMenuOpen(false)} onNewSearch={handleNewSearch} />
 
       {showNag && (
