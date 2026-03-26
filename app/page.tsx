@@ -22,6 +22,7 @@ import { saveProperty as saveToLocal, getPropertyCount, SavedProperty } from "@/
 import { RealieProperty } from "@/lib/realie";
 import { incrementLookup, dismissNag, grantLookupsForShare, getCreditState, updateCreditState } from "@/lib/credits";
 import { MOCK_PERMITS } from "@/lib/mock-data";
+import PropertyEnrichment from "@/components/PropertyEnrichment";
 
 function formatMoney(val?: number | null) {
   if (!val) return "—";
@@ -501,6 +502,16 @@ useEffect(() => {
                     {realieData.LTVCurrentEstCombined && <div className="flex justify-between py-1.5"><span className="text-[12px] text-lens-secondary">LTV Ratio</span><span className="text-[13px] font-medium text-lens-text">{realieData.LTVCurrentEstCombined.toFixed(1)}%</span></div>}
                   </div>
                 </AccordionSection>
+              </div>
+            )}
+
+            {geo.latitude && geo.longitude && (
+              <div className="animate-slide-up delay-5">
+                <PropertyEnrichment
+                  lat={geo.latitude}
+                  lng={geo.longitude}
+                  zip={(() => { const m = displayAddress.match(/(\d{5})/); return m ? m[1] : ""; })()}
+                />
               </div>
             )}
           </>
