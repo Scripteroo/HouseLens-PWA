@@ -6,6 +6,7 @@ import Link from "next/link";
 import { getCreditState } from "@/lib/credits";
 import { getSavedProperties, SavedProperty } from "@/lib/storage";
 import { useAppConfig } from "@/hooks/useAppConfig";
+import { trackEvent } from "@/lib/analytics";
 
 interface Props {
   onBack: () => void;
@@ -65,6 +66,7 @@ export default function SettingsPage({ onBack }: Props) {
       a.download = `houselens-properties-${new Date().toISOString().slice(0, 10)}.csv`;
       a.click();
       URL.revokeObjectURL(url);
+      trackEvent("csv_export", { count: properties.length });
     } finally {
       setExporting(false);
     }

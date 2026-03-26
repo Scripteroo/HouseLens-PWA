@@ -23,6 +23,7 @@ import { saveProperty as saveToLocal, getPropertyCount, SavedProperty } from "@/
 import { RealieProperty } from "@/lib/realie";
 import { incrementLookup, dismissNag, grantLookupsForShare, getCreditState, updateCreditState } from "@/lib/credits";
 import { MOCK_PERMITS } from "@/lib/mock-data";
+import { trackEvent } from "@/lib/analytics";
 import PropertyEnrichment from "@/components/PropertyEnrichment";
 
 function formatMoney(val?: number | null) {
@@ -73,6 +74,7 @@ export default function HomePage() {
     if (localStorage.getItem("hl_onboarded") !== "1") {
       setShowOnboarding(true);
     }
+    trackEvent("page_view");
     const checkDevice = () => {
       const ua = navigator.userAgent.toLowerCase();
       const isMobile = /iphone|ipad|ipod|android|webos|blackberry|windows phone|opera mini|iemobile/i.test(ua);
@@ -146,6 +148,7 @@ useEffect(() => {
           text: `I just looked up a property on HouseLens and found out it's worth ${realieData?.modelValue ? formatMoney(realieData.modelValue) : "thousands"}! Try it free.`,
           url: "https://houselens.io",
         });
+        trackEvent("share_attempt");
         await grantLookupsForShare(5);
         setShowNag(false);
         setLookupBlocked(false);
@@ -163,6 +166,7 @@ useEffect(() => {
           text: "Look up any property and instantly see owner info, tax records, valuations, and more. Try HouseLens free!",
           url: "https://houselens.io",
         });
+        trackEvent("share_attempt");
         await grantLookupsForShare(10);
         setShowNag(false);
         setLookupBlocked(false);

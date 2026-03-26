@@ -6,6 +6,7 @@ import { lookupProperty, RealieProperty } from "@/lib/realie";
 import { skipTrace, SkipTraceResult } from "@/lib/skiptrace";
 import { useSkipTraceCredit, getCreditState, grantSkipTraceCredits } from "@/lib/credits";
 import { useAppConfig } from "@/hooks/useAppConfig";
+import { trackEvent } from "@/lib/analytics";
 
 interface Props {
   address: string;
@@ -132,6 +133,7 @@ export default function OwnerCard({ address, cachedData, cachedSkipTrace, onData
             setProperty(result);
             setUnlocked(true);
             onDataLoaded?.(result);
+            trackEvent("property_lookup", { address, cost: 0.03 });
           } else {
             setError("Property not found. Try editing the address.");
           }
@@ -177,7 +179,10 @@ export default function OwnerCard({ address, cachedData, cachedSkipTrace, onData
     );
     setSkipTraceData(st);
     setSkipTraceLoading(false);
-    if (st) onSkipTraceLoaded?.(st);
+    if (st) {
+      onSkipTraceLoaded?.(st);
+      trackEvent("skip_trace", { address, cost: 0.10 });
+    }
     const credits = await getCreditState();
     setSkipCredits(credits.skipTraceCredits);
   };

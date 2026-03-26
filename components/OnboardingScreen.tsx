@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Camera, User, Phone, ChevronRight } from "lucide-react";
+import { trackEvent } from "@/lib/analytics";
 
 const slides = [
   {
@@ -29,6 +30,7 @@ export default function OnboardingScreen({ onComplete }: { onComplete: () => voi
       setCurrent(current + 1);
     } else {
       localStorage.setItem("hl_onboarded", "1");
+      trackEvent("onboarding_complete");
       onComplete();
     }
   };
