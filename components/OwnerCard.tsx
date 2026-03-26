@@ -10,7 +10,9 @@ import { useAppConfig } from "@/hooks/useAppConfig";
 interface Props {
   address: string;
   cachedData?: RealieProperty | null;
+  cachedSkipTrace?: SkipTraceResult | null;
   onDataLoaded?: (data: RealieProperty) => void;
+  onSkipTraceLoaded?: (data: SkipTraceResult) => void;
   onLookupStarted?: () => void;
   triggerLookup?: boolean;
   isPWA?: boolean;
@@ -75,7 +77,7 @@ function parseAddressParts(fullAddress: string) {
   return { street, city, state, zip };
 }
 
-export default function OwnerCard({ address, cachedData, onDataLoaded, onLookupStarted, triggerLookup, isPWA, onRequestInstall }: Props) {
+export default function OwnerCard({ address, cachedData, cachedSkipTrace, onDataLoaded, onSkipTraceLoaded, onLookupStarted, triggerLookup, isPWA, onRequestInstall }: Props) {
   const { config, isFree } = useAppConfig();
   const [loading, setLoading] = useState(false);
   const [property, setProperty] = useState<RealieProperty | null>(cachedData || null);
@@ -84,9 +86,9 @@ export default function OwnerCard({ address, cachedData, onDataLoaded, onLookupS
   const [hasTriggered, setHasTriggered] = useState(false);
 
   // Skip trace state
-  const [skipTraceData, setSkipTraceData] = useState<SkipTraceResult | null>(null);
+  const [skipTraceData, setSkipTraceData] = useState<SkipTraceResult | null>(cachedSkipTrace || null);
   const [skipTraceLoading, setSkipTraceLoading] = useState(false);
-  const [contactOpen, setContactOpen] = useState(false);
+  const [contactOpen, setContactOpen] = useState(!!cachedSkipTrace);
   const [skipCredits, setSkipCredits] = useState(0);
   const [showShareGate, setShowShareGate] = useState(false);
 
@@ -107,6 +109,14 @@ export default function OwnerCard({ address, cachedData, onDataLoaded, onLookupS
       setContactOpen(false);
     }
   }, [cachedData]);
+
+  // Load cached skip trace when prop changes
+  useEffect(() => {
+    if (cachedSkipTrace) {
+      setSkipTraceData(cachedSkipTrace);
+      setContactOpen(true);
+    }
+  }, [cachedSkipTrace]);
 
   // Realie lookup (property data only, no skip trace)
   useEffect(() => {
@@ -167,6 +177,7 @@ export default function OwnerCard({ address, cachedData, onDataLoaded, onLookupS
     );
     setSkipTraceData(st);
     setSkipTraceLoading(false);
+    if (st) onSkipTraceLoaded?.(st);
     const credits = await getCreditState();
     setSkipCredits(credits.skipTraceCredits);
   };

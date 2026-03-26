@@ -1,4 +1,5 @@
 import { RealieProperty } from "./realie";
+import { SkipTraceResult } from "./skiptrace";
 
 export interface SavedProperty {
   id: string;
@@ -8,6 +9,7 @@ export interface SavedProperty {
   photoUrl: string | null;
   thumbnailUrl: string | null;
   realieData: RealieProperty | null;
+  skipTraceData: SkipTraceResult | null;
   savedAt: string;
 }
 

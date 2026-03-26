@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect } from "react";
 import { Pencil, TrendingUp, Receipt, Landmark, HardHat, Loader2, CheckCircle2, Download, ExternalLink } from "lucide-react";
+import { SkipTraceResult } from "@/lib/skiptrace";
 import PropertyHero from "@/components/PropertyHero";
 import LensLogo from "@/components/LensLogo";
 import InfoCard from "@/components/InfoCard";
@@ -52,6 +53,9 @@ export default function HomePage() {
   const [shouldLookup, setShouldLookup] = useState(false);
   const [isPWA, setIsPWA] = useState(false);
   const [showInstallPrompt, setShowInstallPrompt] = useState(false);
+  const [skipTraceData, setSkipTraceData] = useState<SkipTraceResult | null>(null);
+  const [propertyComplete, setPropertyComplete] = useState(false);
+  const [loadedFromLibrary, setLoadedFromLibrary] = useState(false);
 
   // Detect if running as installed PWA
   useEffect(() => {
@@ -89,7 +93,7 @@ export default function HomePage() {
 
 // Auto-save when Realie data loads after a photo capture
 useEffect(() => {
-  if (realieData && camera.photoUrl && !saved) {
+  if (realieData && camera.photoUrl && !saved && !loadedFromLibrary) {
     savePropertyAction();
   }
 }, [realieData]);
@@ -166,7 +170,10 @@ useEffect(() => {
     if (prop.photoUrl) camera.setPhotoUrl(prop.photoUrl);
     if (prop.thumbnailUrl) camera.setThumbnailUrl(prop.thumbnailUrl);
     setRealieData(prop.realieData || null);
+    setSkipTraceData(prop.skipTraceData || null);
     setShouldLookup(false);
+    setLoadedFromLibrary(true);
+    setPropertyComplete(false);
     setActiveTab("home");
     showToast("Property loaded!");
   };
@@ -176,8 +183,12 @@ useEffect(() => {
     camera.setPhotoUrl(null);
     camera.setThumbnailUrl(null);
     setRealieData(null);
+    setSkipTraceData(null);
     setShouldLookup(false);
     setLookupBlocked(false);
+    setSaved(false);
+    setPropertyComplete(false);
+    setLoadedFromLibrary(false);
     geo.requestLocation();
     showToast("Ready for new property!");
   };
@@ -215,6 +226,7 @@ useEffect(() => {
         photoUrl: camera.photoUrl,
         thumbnailUrl: camera.thumbnailUrl,
         realieData: realieData,
+        skipTraceData: skipTraceData,
       });
       const count = await getPropertyCount();
       setPropertyCount(count);
@@ -226,16 +238,18 @@ useEffect(() => {
       }
 
       setSaved(true);
+      setPropertyComplete(true);
       if (navigator.vibrate) navigator.vibrate([10, 50, 10]);
       showToast("Property saved!");
       setTimeout(() => setSaved(false), 2500);
     } catch (err) {
       console.error("Save failed:", err);
       setSaved(true);
+      setPropertyComplete(true);
       showToast("Property saved!");
       setTimeout(() => setSaved(false), 2500);
     } finally { setSaving(false); }
-  }, [displayAddress, geo.latitude, geo.longitude, camera.photoUrl, camera.thumbnailUrl, realieData]);
+  }, [displayAddress, geo.latitude, geo.longitude, camera.photoUrl, camera.thumbnailUrl, realieData, skipTraceData]);
 
   const handleTabChange = (tab: string) => {
     if (tab === "share") { saveToDevice(); return; }
@@ -283,7 +297,35 @@ useEffect(() => {
       <input ref={camera.inputRef} type="file" accept="image/*" capture="environment" onChange={camera.handleFileChange} className="hidden" />
 
       <PropertyHero photoUrl={camera.photoUrl} onOpenCamera={camera.openCamera} onMenuToggle={() => setMenuOpen(true)} />
-      <LensLogo onTap={camera.openCamera} />
+
+      {propertyComplete ? (
+        <div className="flex justify-center -mt-11 relative z-20">
+          <div className="relative">
+            <div className="absolute inset-[-6px] rounded-full bg-green-400/20 animate-ping" style={{ animationDuration: "3s" }} />
+            <button
+              onClick={() => {
+                setPropertyComplete(false);
+                setManualAddress(null);
+                camera.setPhotoUrl(null);
+                camera.setThumbnailUrl(null);
+                setRealieData(null);
+                setSkipTraceData(null);
+                setShouldLookup(false);
+                setLookupBlocked(false);
+                setSaved(false);
+                setLoadedFromLibrary(false);
+                geo.requestLocation();
+              }}
+              type="button"
+              className="relative w-[84px] h-[84px] rounded-full bg-white shadow-logo flex items-center justify-center border-[3px] border-white overflow-hidden active:scale-95 transition-transform"
+            >
+              <img src="/geo-icon.png" alt="Next Property" className="w-[54px] h-[54px] object-contain" draggable={false} />
+            </button>
+          </div>
+        </div>
+      ) : (
+        <LensLogo onTap={camera.openCamera} />
+      )}
 
       <div className="px-4 mt-4 space-y-3 max-w-lg mx-auto">
         {lookupCount > 0 && lookupCount <= 10 && (
@@ -309,7 +351,9 @@ useEffect(() => {
             <OwnerCard
               address={displayAddress}
               cachedData={realieData}
+              cachedSkipTrace={skipTraceData}
               onDataLoaded={(data) => setRealieData(data)}
+              onSkipTraceLoaded={(data) => setSkipTraceData(data)}
               onLookupStarted={handleLookupStarted}
               triggerLookup={shouldLookup}
               isPWA={isPWA}
