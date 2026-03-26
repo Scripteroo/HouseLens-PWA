@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Waves, Leaf, Mountain, Sun, ChevronDown, ChevronUp } from "lucide-react";
+import { Waves, Leaf, Mountain, Sun, Users, ChevronDown, ChevronUp } from "lucide-react";
 import { enrichProperty, EnrichmentData } from "@/lib/enrichment";
 
 interface Props {
@@ -77,7 +77,7 @@ export default function PropertyEnrichment({ lat, lng, zip }: Props) {
 
   if (!data) return null;
 
-  const hasAny = data.flood || data.growingZone || data.elevation || data.sun;
+  const hasAny = data.flood || data.growingZone || data.elevation || data.sun || data.census;
   if (!hasAny) return null;
 
   return (
@@ -112,6 +112,20 @@ export default function PropertyEnrichment({ lat, lng, zip }: Props) {
             <DataRow label="Sunset" value={data.sun.sunset} />
             <DataRow label="Day Length" value={data.sun.dayLength} />
             <DataRow label="Solar Noon" value={data.sun.solarNoon} />
+          </Section>
+        )}
+
+        {data.census && (
+          <Section title="Neighborhood Demographics" icon={<Users className="w-3.5 h-3.5 text-lens-accent" />}>
+            <DataRow label="Population" value={data.census.population != null ? data.census.population.toLocaleString() : null} />
+            <DataRow label="Median Household Income" value={data.census.medianIncome != null ? `$${data.census.medianIncome.toLocaleString()}` : null} />
+            <DataRow label="Median Home Value" value={data.census.medianHomeValue != null ? `$${data.census.medianHomeValue.toLocaleString()}` : null} />
+            <DataRow label="Median Age" value={data.census.medianAge != null ? String(data.census.medianAge) : null} />
+            <DataRow label="Median Rent" value={data.census.medianRent != null ? `$${data.census.medianRent.toLocaleString()}/mo` : null} />
+            <DataRow label="Unemployment Rate" value={data.census.unemploymentRate != null ? `${data.census.unemploymentRate}%` : null} />
+            <DataRow label="College Education" value={data.census.collegeRate != null ? `${data.census.collegeRate}%` : null} />
+            <DataRow label="Owner-Occupied" value={data.census.ownerOccupiedRate != null ? `${data.census.ownerOccupiedRate}%` : null} />
+            <p className="text-[10px] text-lens-secondary/60 mt-2 pt-1 border-t border-lens-border/30">Source: US Census Bureau ACS 2022</p>
           </Section>
         )}
       </div>
