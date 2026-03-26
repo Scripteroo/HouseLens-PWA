@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import { Pencil, TrendingUp, Receipt, Landmark, HardHat, Loader2, CheckCircle2, Download, ExternalLink, AlertTriangle } from "lucide-react";
+import { Pencil, RotateCw, TrendingUp, Receipt, Landmark, HardHat, Loader2, CheckCircle2, Download, ExternalLink, AlertTriangle } from "lucide-react";
 import { SkipTraceResult } from "@/lib/skiptrace";
 import PropertyHero from "@/components/PropertyHero";
 import LensLogo from "@/components/LensLogo";
@@ -396,15 +396,48 @@ useEffect(() => {
               </div>
             </div>
           ) : (
-            <InfoCard label="Address" icon={<Pencil className="w-4 h-4 text-lens-secondary" />} onIconClick={() => setEditingAddress(true)} tappable>
-              <p>{geo.loading && !manualAddress ? (<span className="flex items-center gap-2 text-lens-secondary"><Loader2 className="w-4 h-4 animate-spin" />Detecting location…</span>) : displayAddress}</p>
-              {geo.latitude && (
-                <p className="text-[11px] text-lens-secondary mt-1">
-                  {geo.latitude.toFixed(6)}° N, {Math.abs(geo.longitude!).toFixed(6)}° W
-                  {geo.accuracy && <span className="ml-1.5 text-lens-accent/60">±{Math.round(geo.accuracy)}m</span>}
-                </p>
-              )}
-            </InfoCard>
+            <div className="bg-lens-card rounded-2xl shadow-card px-5 py-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1 min-w-0 cursor-pointer active:scale-[0.98] transition-all" onClick={() => { if (navigator.vibrate) navigator.vibrate(10); setEditingAddress(true); }}>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-lens-secondary mb-1.5">Address</p>
+                  <div className="text-[15px] leading-snug text-lens-text font-medium">
+                    <p>{geo.loading && !manualAddress ? (<span className="flex items-center gap-2 text-lens-secondary"><Loader2 className="w-4 h-4 animate-spin" />Detecting location…</span>) : displayAddress}</p>
+                    {geo.latitude && (
+                      <p className="text-[11px] text-lens-secondary mt-1">
+                        {geo.latitude.toFixed(6)}° N, {Math.abs(geo.longitude!).toFixed(6)}° W
+                        {geo.accuracy && <span className="ml-1.5 text-lens-accent/60">±{Math.round(geo.accuracy)}m</span>}
+                      </p>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-lens-accent/60 mt-2 font-medium">Tap to edit</p>
+                </div>
+                <div className="flex flex-col gap-1.5 flex-shrink-0 mt-0.5">
+                  <button onClick={() => { if (navigator.vibrate) navigator.vibrate(10); setEditingAddress(true); }} className="w-9 h-9 rounded-xl bg-lens-bg flex items-center justify-center active:scale-90 transition-all duration-150 hover:bg-lens-accent/10" type="button">
+                    <Pencil className="w-4 h-4 text-lens-secondary" />
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (navigator.vibrate) navigator.vibrate(10);
+                      setManualAddress(null);
+                      setRealieData(null);
+                      setSkipTraceData(null);
+                      camera.setPhotoUrl(null);
+                      camera.setThumbnailUrl(null);
+                      setShouldLookup(false);
+                      setSaved(false);
+                      setPropertyComplete(false);
+                      setLoadedFromLibrary(false);
+                      geo.requestLocation();
+                      showToast("Refreshing location...");
+                    }}
+                    className="w-9 h-9 rounded-xl bg-lens-bg flex items-center justify-center active:scale-90 transition-all duration-150 hover:bg-lens-accent/10"
+                    type="button"
+                  >
+                    <RotateCw className={`w-4 h-4 text-lens-secondary ${geo.loading ? "animate-spin" : ""}`} />
+                  </button>
+                </div>
+              </div>
+            </div>
           )}
         </div>
 
