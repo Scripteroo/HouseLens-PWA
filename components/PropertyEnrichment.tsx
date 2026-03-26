@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Waves, Leaf, Mountain, Sun, Users, ShieldAlert, ChevronDown, ChevronUp } from "lucide-react";
+import { Waves, Leaf, Mountain, Sun, Users, ShieldAlert, AlertTriangle, ExternalLink, ChevronDown, ChevronUp } from "lucide-react";
 import { enrichProperty, EnrichmentData } from "@/lib/enrichment";
 
 interface Props {
@@ -9,6 +9,7 @@ interface Props {
   lng: number;
   zip: string;
   stateAbbrev?: string;
+  address?: string;
 }
 
 function Section({ title, icon, children }: { title: string; icon: React.ReactNode; children: React.ReactNode }) {
@@ -50,7 +51,7 @@ function LoadingSkeleton() {
   );
 }
 
-export default function PropertyEnrichment({ lat, lng, zip, stateAbbrev }: Props) {
+export default function PropertyEnrichment({ lat, lng, zip, stateAbbrev, address }: Props) {
   const [data, setData] = useState<EnrichmentData | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -148,6 +149,46 @@ export default function PropertyEnrichment({ lat, lng, zip, stateAbbrev }: Props
             </p>
           </Section>
         )}
+
+        {(() => {
+          const parts = (address || "").split(",").map(s => s.trim());
+          const streetAddr = parts[0] || "";
+          const city = parts[1] || "";
+          const st = stateAbbrev || "";
+          const nsopwUrl = `https://www.nsopw.gov/search-public-sex-offender-registries?searchAddress=${encodeURIComponent(streetAddr)}&searchCity=${encodeURIComponent(city)}&searchState=${encodeURIComponent(st)}&searchRadius=1`;
+
+          return (
+            <Section title="Sex Offender Registry" icon={<AlertTriangle className="w-3.5 h-3.5 text-lens-accent" />}>
+              <p className="text-[12px] text-lens-secondary mb-3">Check for registered sex offenders near this property</p>
+              <div className="flex gap-2 mb-2">
+                <a
+                  href={nsopwUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl bg-lens-card shadow-card border border-lens-border active:scale-[0.97] transition-transform"
+                >
+                  <span className="text-[13px] font-semibold text-amber-600">Search NSOPW</span>
+                  <ExternalLink className="w-3.5 h-3.5 text-amber-400" />
+                </a>
+                {st === "FL" && (
+                  <a
+                    href="https://offender.fdle.state.fl.us/offender/Search.jsp"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl bg-lens-card shadow-card border border-lens-border active:scale-[0.97] transition-transform"
+                  >
+                    <span className="text-[13px] font-semibold text-blue-600">Florida Registry</span>
+                    <ExternalLink className="w-3.5 h-3.5 text-blue-400" />
+                  </a>
+                )}
+              </div>
+              <p className="text-[10px] text-lens-secondary/60">
+                Free lookup via U.S. Dept. of Justice &bull; NSOPW.gov
+                {st === "FL" && " &bull; Florida Dept. of Law Enforcement"}
+              </p>
+            </Section>
+          );
+        })()}
       </div>
     </div>
   );
