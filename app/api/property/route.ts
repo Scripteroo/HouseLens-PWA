@@ -1,9 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 
+const US_STATES = new Set([
+  "AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA","HI","ID","IL","IN","IA","KS","KY","LA","ME","MD",
+  "MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY","NC","ND","OH","OK","OR","PA","RI","SC",
+  "SD","TN","TX","UT","VT","VA","WA","WV","WI","WY","DC","PR","VI","GU","AS","MP",
+]);
+
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const address = searchParams.get("address") || "";
   const state = searchParams.get("state") || "";
+
+  if (state && !US_STATES.has(state.toUpperCase())) {
+    return NextResponse.json({ error: "Property lookups are available for US addresses only" }, { status: 400 });
+  }
 
   const apiKey = process.env.REALIE_API_KEY;
 

@@ -45,11 +45,20 @@ export default function PropertiesList({ onBack, onSelectProperty }: Props) {
           </div>
         ) : properties.length === 0 ? (
           <div className="text-center py-16">
-            <div className="w-16 h-16 rounded-full bg-lens-accent/10 flex items-center justify-center mx-auto mb-4">
-              <MapPin className="w-7 h-7 text-lens-accent/50" />
+            <div className="w-20 h-20 rounded-full bg-lens-accent/10 flex items-center justify-center mx-auto mb-5">
+              <Camera className="w-9 h-9 text-lens-accent/50" />
             </div>
-            <p className="text-[17px] font-semibold text-lens-text mb-1">No properties saved</p>
-            <p className="text-[13px] text-lens-secondary">Capture a property and tap Save to add it here.</p>
+            <p className="text-[19px] font-bold text-lens-text mb-2">No Properties Yet</p>
+            <p className="text-[14px] text-lens-secondary leading-relaxed max-w-[280px] mx-auto mb-6">
+              Walk up to any house, snap a photo, and start building your property collection.
+            </p>
+            <button
+              onClick={onBack}
+              className="px-6 py-3 rounded-2xl bg-lens-accent text-white text-[15px] font-semibold active:scale-[0.97] transition-all shadow-lg"
+              type="button"
+            >
+              Scan Your First Property
+            </button>
           </div>
         ) : (
           <div className="space-y-3">

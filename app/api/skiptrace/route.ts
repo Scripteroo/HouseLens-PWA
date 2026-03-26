@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 
+const US_STATES = new Set([
+  "AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA","HI","ID","IL","IN","IA","KS","KY","LA","ME","MD",
+  "MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY","NC","ND","OH","OK","OR","PA","RI","SC",
+  "SD","TN","TX","UT","VT","VA","WA","WV","WI","WY","DC","PR","VI","GU","AS","MP",
+]);
+
 export async function POST(req: NextRequest) {
   const body = await req.json();
   const { address, city, state, zip, firstName, lastName } = body;
@@ -12,6 +18,10 @@ export async function POST(req: NextRequest) {
 
   if (!address || !city || !state) {
     return NextResponse.json({ error: "address, city, state required" }, { status: 400 });
+  }
+
+  if (!US_STATES.has(state.toUpperCase())) {
+    return NextResponse.json({ error: "Skip trace is available for US addresses only" }, { status: 400 });
   }
 
   try {

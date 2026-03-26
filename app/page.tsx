@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import { Pencil, TrendingUp, Receipt, Landmark, HardHat, Loader2, CheckCircle2, Download, ExternalLink } from "lucide-react";
+import { Pencil, TrendingUp, Receipt, Landmark, HardHat, Loader2, CheckCircle2, Download, ExternalLink, AlertTriangle } from "lucide-react";
 import { SkipTraceResult } from "@/lib/skiptrace";
 import PropertyHero from "@/components/PropertyHero";
 import LensLogo from "@/components/LensLogo";
@@ -14,6 +14,7 @@ import SideMenu from "@/components/SideMenu";
 import PropertiesList from "@/components/PropertiesList";
 import SettingsPage from "@/components/SettingsPage";
 import NagScreen from "@/components/NagScreen";
+import OnboardingScreen from "@/components/OnboardingScreen";
 import { useGeolocation } from "@/hooks/useGeolocation";
 import { useCamera } from "@/hooks/useCamera";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
@@ -57,12 +58,16 @@ export default function HomePage() {
   const [skipTraceData, setSkipTraceData] = useState<SkipTraceResult | null>(null);
   const [propertyComplete, setPropertyComplete] = useState(false);
   const [loadedFromLibrary, setLoadedFromLibrary] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
 
-  // Detect if running as installed PWA
+  // Detect if running as installed PWA + onboarding check
   useEffect(() => {
     const isStandalone = window.matchMedia("(display-mode: standalone)").matches
       || (navigator as any).standalone === true;
     setIsPWA(isStandalone);
+    if (localStorage.getItem("hl_onboarded") !== "1") {
+      setShowOnboarding(true);
+    }
   }, []);
 
   const handleRequestInstall = useCallback(() => {
@@ -84,11 +89,15 @@ export default function HomePage() {
   useEffect(() => { getPropertyCount().then(setPropertyCount); }, []);
   useEffect(() => { getCreditState().then((s) => setLookupCount(s.freeLookupsUsed)); }, []);
 
- // Trigger lookup when photo is captured
+ // Trigger lookup when photo is captured (US only)
  useEffect(() => {
   if (camera.photoUrl && !realieData && !lookupBlocked) {
-    setShouldLookup(true);
-    showToast("Photo captured! Looking up property…");
+    if (geo.isUSA) {
+      setShouldLookup(true);
+      showToast("Photo captured! Looking up property…");
+    } else {
+      showToast("Photo captured!");
+    }
   }
 }, [camera.photoUrl]);
 
@@ -307,6 +316,7 @@ useEffect(() => {
 
   return (
     <div className="min-h-screen bg-lens-bg pb-24">
+      {showOnboarding && <OnboardingScreen onComplete={() => setShowOnboarding(false)} />}
       <SideMenu open={menuOpen} onClose={() => setMenuOpen(false)} onNewSearch={handleNewSearch} />
 
       {showNag && (
@@ -364,15 +374,41 @@ useEffect(() => {
         )}
 
         <div className="animate-slide-up delay-1">
-          <InfoCard label="Address" icon={<Pencil className="w-4 h-4 text-lens-secondary" />} onIconClick={() => setEditingAddress(true)} tappable>
-            <p>{geo.loading && !manualAddress ? (<span className="flex items-center gap-2 text-lens-secondary"><Loader2 className="w-4 h-4 animate-spin" />Detecting location…</span>) : displayAddress}</p>
-            {geo.latitude && (
-              <p className="text-[11px] text-lens-secondary mt-1">
-                {geo.latitude.toFixed(6)}° N, {Math.abs(geo.longitude!).toFixed(6)}° W
-                {geo.accuracy && <span className="ml-1.5 text-lens-accent/60">±{Math.round(geo.accuracy)}m</span>}
-              </p>
-            )}
-          </InfoCard>
+          {geo.error && !manualAddress ? (
+            <div className="bg-lens-card rounded-2xl shadow-card px-5 py-4">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <AlertTriangle className="w-5 h-5 text-amber-500" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-[15px] font-bold text-lens-text mb-1">Location Access Required</p>
+                  <p className="text-[12px] text-lens-secondary leading-relaxed mb-2">
+                    HouseLens needs your location to identify nearby properties. Please enable Location Services in your device settings.
+                  </p>
+                  <p className="text-[11px] text-lens-secondary/70 mb-3">
+                    iOS: Settings → Privacy → Location Services → Safari → While Using
+                  </p>
+                  <button
+                    onClick={() => geo.requestLocation()}
+                    className="px-4 py-2 rounded-xl bg-lens-accent text-white text-[13px] font-semibold active:scale-[0.97] transition-all"
+                    type="button"
+                  >
+                    Try Again
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <InfoCard label="Address" icon={<Pencil className="w-4 h-4 text-lens-secondary" />} onIconClick={() => setEditingAddress(true)} tappable>
+              <p>{geo.loading && !manualAddress ? (<span className="flex items-center gap-2 text-lens-secondary"><Loader2 className="w-4 h-4 animate-spin" />Detecting location…</span>) : displayAddress}</p>
+              {geo.latitude && (
+                <p className="text-[11px] text-lens-secondary mt-1">
+                  {geo.latitude.toFixed(6)}° N, {Math.abs(geo.longitude!).toFixed(6)}° W
+                  {geo.accuracy && <span className="ml-1.5 text-lens-accent/60">±{Math.round(geo.accuracy)}m</span>}
+                </p>
+              )}
+            </InfoCard>
+          )}
         </div>
 
         {!lookupBlocked && (
@@ -386,6 +422,7 @@ useEffect(() => {
               onLookupStarted={handleLookupStarted}
               triggerLookup={shouldLookup}
               isPWA={isPWA}
+              isUSA={geo.isUSA}
               onRequestInstall={handleRequestInstall}
             />
           </div>
