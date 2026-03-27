@@ -228,14 +228,16 @@ useEffect(() => {
     if (navigator.vibrate) navigator.vibrate(10);
     if (navigator.share) {
       try {
-        const text = `SnapOwner Property\n\n📍 ${displayAddress}${realieData ? `\n\n👤 Owner: ${realieData.ownerName || "Unknown"}\n💰 Estimated Value: ${formatMoney(realieData.modelValue)}\n🏠 ${realieData.totalBedrooms || "?"}bd / ${realieData.totalBathrooms || "?"}ba · ${realieData.buildingArea?.toLocaleString() || "?"} sqft\n📅 Year Built: ${realieData.yearBuilt || "?"}\n💵 Last Sale: ${formatMoney(realieData.transferPrice)} (${formatDate(realieData.transferDate)})\n🏛 Annual Tax: ${formatMoney(realieData.taxValue)}` : ""}${shareFooter}`;
-        const shareData: ShareData = { title: `Property: ${displayAddress}`, text };
+        const text = `\uD83C\uDFE0 Check out this property I found on SnapOwner!\n\n\uD83D\uDCCD ${displayAddress}${realieData ? `\n\n\uD83D\uDC64 Owner: ${realieData.ownerName || "Unknown"}\n\uD83D\uDCB0 Estimated Value: ${formatMoney(realieData.modelValue)}\n\uD83C\uDFE0 ${realieData.totalBedrooms || "?"}bd / ${realieData.totalBathrooms || "?"}ba \u00B7 ${realieData.buildingArea?.toLocaleString() || "?"} sqft\n\uD83D\uDCC5 Year Built: ${realieData.yearBuilt || "?"}\n\uD83D\uDCB5 Last Sale: ${formatMoney(realieData.transferPrice)} (${formatDate(realieData.transferDate)})\n\uD83C\uDFDB Annual Tax: ${formatMoney(realieData.taxValue)}` : ""}${shareFooter}`;
+        const shareData: ShareData = { title: "SnapOwner Property Report", text };
         if (camera.photoUrl) {
           try {
+            const sanitized = displayAddress.replace(/[^a-zA-Z0-9]+/g, "-").replace(/-+$/, "").slice(0, 60);
+            const filename = `SnapOwner-${sanitized}.jpg`;
             const watermarked = await addWatermark(camera.photoUrl);
             const res = await fetch(watermarked);
             const blob = await res.blob();
-            const file = new File([blob], "property.jpg", { type: "image/jpeg" });
+            const file = new File([blob], filename, { type: "image/jpeg" });
             if (navigator.canShare && navigator.canShare({ files: [file] })) { shareData.files = [file]; }
           } catch {}
         }
