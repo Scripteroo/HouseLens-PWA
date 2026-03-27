@@ -140,12 +140,14 @@ useEffect(() => {
     setShouldLookup(true);
   }, []);
 
+  const shareFooter = "\n\n---\n\uD83D\uDCF2 Get HouseLens — look up any property owner instantly\nNo install needed \u2192 houselens.io";
+
   const handleShare5 = useCallback(async () => {
     if (navigator.share) {
       try {
         await navigator.share({
           title: "HouseLens — Free Property Intelligence",
-          text: `I just looked up a property on HouseLens and found out it's worth ${realieData?.modelValue ? formatMoney(realieData.modelValue) : "thousands"}! Try it free.`,
+          text: `I just looked up a property on HouseLens and found out it's worth ${realieData?.modelValue ? formatMoney(realieData.modelValue) : "thousands"}! Try it free.${shareFooter}`,
           url: "https://houselens.io",
         });
         trackEvent("share_attempt");
@@ -163,7 +165,7 @@ useEffect(() => {
       try {
         await navigator.share({
           title: "HouseLens — Free Property Intelligence",
-          text: "Look up any property and instantly see owner info, tax records, valuations, and more. Try HouseLens free!",
+          text: `Look up any property and instantly see owner info, tax records, valuations, and more. Try HouseLens free!${shareFooter}`,
           url: "https://houselens.io",
         });
         trackEvent("share_attempt");
@@ -221,7 +223,7 @@ useEffect(() => {
     if (navigator.vibrate) navigator.vibrate(10);
     if (navigator.share) {
       try {
-        const text = `HouseLens Property\n\n📍 ${displayAddress}${realieData ? `\n\n👤 Owner: ${realieData.ownerName || "Unknown"}\n💰 Estimated Value: ${formatMoney(realieData.modelValue)}\n🏠 ${realieData.totalBedrooms || "?"}bd / ${realieData.totalBathrooms || "?"}ba · ${realieData.buildingArea?.toLocaleString() || "?"} sqft\n📅 Year Built: ${realieData.yearBuilt || "?"}\n💵 Last Sale: ${formatMoney(realieData.transferPrice)} (${formatDate(realieData.transferDate)})\n🏛 Annual Tax: ${formatMoney(realieData.taxValue)}` : ""}`;
+        const text = `HouseLens Property\n\n📍 ${displayAddress}${realieData ? `\n\n👤 Owner: ${realieData.ownerName || "Unknown"}\n💰 Estimated Value: ${formatMoney(realieData.modelValue)}\n🏠 ${realieData.totalBedrooms || "?"}bd / ${realieData.totalBathrooms || "?"}ba · ${realieData.buildingArea?.toLocaleString() || "?"} sqft\n📅 Year Built: ${realieData.yearBuilt || "?"}\n💵 Last Sale: ${formatMoney(realieData.transferPrice)} (${formatDate(realieData.transferDate)})\n🏛 Annual Tax: ${formatMoney(realieData.taxValue)}` : ""}${shareFooter}`;
         const shareData: ShareData = { title: `Property: ${displayAddress}`, text };
         if (camera.photoUrl) {
           try {

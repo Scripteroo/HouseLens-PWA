@@ -192,7 +192,7 @@ export default function OwnerCard({ address, cachedData, cachedSkipTrace, onData
       try {
         await navigator.share({
           title: "HouseLens — Instant Property Intelligence",
-          text: `I just looked up a property on HouseLens and found the owner's phone number instantly! Try it free.`,
+          text: "I just looked up a property on HouseLens and found the owner's phone number instantly! Try it free.\n\n---\n\uD83D\uDCF2 Get HouseLens — look up any property owner instantly\nNo install needed \u2192 houselens.io",
           url: "https://houselens.io",
         });
         await grantSkipTraceCredits(3);
