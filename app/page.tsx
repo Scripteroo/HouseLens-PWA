@@ -15,6 +15,7 @@ import PropertiesList from "@/components/PropertiesList";
 import SettingsPage from "@/components/SettingsPage";
 import NagScreen from "@/components/NagScreen";
 import OnboardingScreen from "@/components/OnboardingScreen";
+import HouseNumberPicker from "@/components/HouseNumberPicker";
 import DesktopLanding from "@/components/DesktopLanding";
 import { useGeolocation } from "@/hooks/useGeolocation";
 import { useCamera } from "@/hooks/useCamera";
@@ -449,7 +450,6 @@ useEffect(() => {
                       </p>
                     )}
                   </div>
-                  <p className="text-[10px] text-lens-accent/60 mt-2 font-medium">Tap to edit</p>
                 </div>
                 <div className="flex flex-col gap-1.5 flex-shrink-0 mt-0.5">
                   <button onClick={() => { if (navigator.vibrate) navigator.vibrate(10); setEditingAddress(true); }} className={`w-9 h-9 rounded-xl flex items-center justify-center active:scale-90 transition-all duration-150 hover:bg-lens-accent/10 ${editPulse ? "bg-lens-accent/20 animate-pulse" : "bg-lens-bg"}`} type="button">
@@ -492,6 +492,24 @@ useEffect(() => {
                   </button>
                 </div>
               </div>
+              {!geo.loading && displayAddress && !displayAddress.includes("Detecting") && (() => {
+                const numMatch = displayAddress.match(/^(\d+)/);
+                if (!numMatch) return null;
+                const houseNum = parseInt(numMatch[1], 10);
+                if (isNaN(houseNum)) return null;
+                return (
+                  <HouseNumberPicker
+                    currentNumber={houseNum}
+                    onNumberChange={(num) => {
+                      const newAddr = displayAddress.replace(/^\d+/, String(num));
+                      setManualAddress(newAddr);
+                      setRealieData(null);
+                      setSkipTraceData(null);
+                      setShouldLookup(false);
+                    }}
+                  />
+                );
+              })()}
             </div>
           )}
         </div>
