@@ -109,11 +109,12 @@ export function parseAddress(fullAddress: string): { street: string; city: strin
 }
 
 export async function lookupProperty(fullAddress: string): Promise<RealieProperty | null> {
+  const { BASE_URL } = await import("./api-config");
   const { street, state } = parseAddress(fullAddress);
-  
+
   const params = new URLSearchParams({ address: street, state });
-  
-  const res = await fetch(`/api/property?${params.toString()}`);
+
+  const res = await fetch(`${BASE_URL}/api/property?${params.toString()}`);
   if (!res.ok) return null;
   
   const data = await res.json();

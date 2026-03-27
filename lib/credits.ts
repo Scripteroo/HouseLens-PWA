@@ -14,7 +14,8 @@ async function getRemoteFlags(): Promise<{ skipCreditGates: boolean; skipLookupG
     return _remoteConfigCache;
   }
   try {
-    const res = await fetch("/api/config");
+    const { BASE_URL } = await import("./api-config");
+    const res = await fetch(`${BASE_URL}/api/config`);
     const data = await res.json();
     _remoteConfigCache = { skipCreditGates: data.skipCreditGates, skipLookupGates: data.skipLookupGates, ts: Date.now() };
     return _remoteConfigCache;

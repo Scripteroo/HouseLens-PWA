@@ -37,7 +37,8 @@ export async function skipTrace(
     const payload: Record<string, string> = { address: streetOnly, city, state };
     if (zip) payload.zip = zip;
 
-    const res = await fetch("/api/skiptrace", {
+    const { BASE_URL } = await import("./api-config");
+    const res = await fetch(`${BASE_URL}/api/skiptrace`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),

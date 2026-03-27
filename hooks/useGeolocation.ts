@@ -23,7 +23,8 @@ export function useGeolocation() {
   const reverseGeocode = useCallback(async (lat: number, lng: number): Promise<{ address: string; isUSA: boolean }> => {
     // Try Google Geocoding API first
     try {
-      const res = await fetch(`/api/geocode?lat=${lat}&lng=${lng}`);
+      const { BASE_URL } = await import("@/lib/api-config");
+      const res = await fetch(`${BASE_URL}/api/geocode?lat=${lat}&lng=${lng}`);
       if (res.ok) {
         const data = await res.json();
         if (data.formatted) {

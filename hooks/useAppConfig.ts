@@ -42,19 +42,19 @@ export function useAppConfig() {
     } catch {}
 
     // Fetch fresh config
-    fetch("/api/config")
-      .then((r) => r.json())
-      .then((data: AppConfig) => {
-        setConfig(data);
-        localStorage.setItem(
-          CACHE_KEY,
-          JSON.stringify({ config: data, ts: Date.now() })
-        );
-      })
-      .catch(() => {
-        // Keep default on failure
-      })
-      .finally(() => setLoading(false));
+    import("@/lib/api-config").then(({ BASE_URL }) =>
+      fetch(`${BASE_URL}/api/config`)
+        .then((r) => r.json())
+        .then((data: AppConfig) => {
+          setConfig(data);
+          localStorage.setItem(
+            CACHE_KEY,
+            JSON.stringify({ config: data, ts: Date.now() })
+          );
+        })
+        .catch(() => {})
+        .finally(() => setLoading(false))
+    );
   }, []);
 
   return { config, loading, isFree: config.mode === "free" };
