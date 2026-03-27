@@ -65,7 +65,6 @@ export default function HomePage() {
   const [propertyComplete, setPropertyComplete] = useState(false);
   const [loadedFromLibrary, setLoadedFromLibrary] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
-  const [lastRefreshCoords, setLastRefreshCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [editPulse, setEditPulse] = useState(false);
   const [isDesktop, setIsDesktop] = useState(false);
   const [showMilestone, setShowMilestone] = useState(false);
@@ -458,21 +457,6 @@ useEffect(() => {
                   <button
                     onClick={() => {
                       if (navigator.vibrate) navigator.vibrate(10);
-                      // Check if we're at the same spot as last refresh
-                      if (lastRefreshCoords && geo.latitude && geo.longitude) {
-                        const dLat = (geo.latitude - lastRefreshCoords.lat) * 111320;
-                        const dLng = (geo.longitude - lastRefreshCoords.lng) * 111320 * Math.cos(geo.latitude * Math.PI / 180);
-                        const dist = Math.sqrt(dLat * dLat + dLng * dLng);
-                        if (dist < 15) {
-                          showToast("Same location detected. Tap the pencil icon to edit the address manually.");
-                          setEditPulse(true);
-                          setTimeout(() => setEditPulse(false), 1500);
-                          return;
-                        }
-                      }
-                      if (geo.latitude && geo.longitude) {
-                        setLastRefreshCoords({ lat: geo.latitude, lng: geo.longitude });
-                      }
                       setManualAddress(null);
                       setRealieData(null);
                       setSkipTraceData(null);
