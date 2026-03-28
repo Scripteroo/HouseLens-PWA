@@ -459,11 +459,13 @@ useEffect(() => {
             <div className="bg-lens-card rounded-2xl shadow-card px-5 py-4">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex-1 min-w-0">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-lens-secondary mb-1.5">Address</p>
                   {geo.loading && !manualAddress ? (
-                    <div className="text-[15px] leading-snug text-lens-text font-medium">
-                      <span className="flex items-center gap-2 text-lens-secondary"><Loader2 className="w-4 h-4 animate-spin" />Detecting location…</span>
-                    </div>
+                    <>
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-lens-secondary mb-1.5">Address</p>
+                      <div className="text-[15px] leading-snug text-lens-text font-medium">
+                        <span className="flex items-center gap-2 text-lens-secondary"><Loader2 className="w-4 h-4 animate-spin" />Detecting location…</span>
+                      </div>
+                    </>
                   ) : (() => {
                     const numMatch = displayAddress.match(/^(\d+)/);
                     const hasNumber = numMatch && !isNaN(parseInt(numMatch[1], 10));
@@ -471,8 +473,8 @@ useEffect(() => {
                       const houseNum = parseInt(numMatch![1], 10);
                       const rest = displayAddress.replace(/^\d+\s*/, "");
                       return (
-                        <div className="flex items-start gap-2">
-                          <div className="pt-[2px]"><HouseNumberPicker
+                        <div className="flex items-start gap-1.5">
+                          <div className="mt-[18px]"><HouseNumberPicker
                             currentNumber={houseNum}
                             onNumberChange={(num) => {
                               const newAddr = displayAddress.replace(/^\d+/, String(num));
@@ -483,6 +485,7 @@ useEffect(() => {
                             }}
                           /></div>
                           <div className="flex-1 min-w-0">
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-lens-secondary mb-1.5">Address</p>
                             <p className="text-[15px] leading-snug text-lens-text font-medium">{rest}</p>
                             {geo.latitude && (
                               <p className="text-[11px] text-lens-secondary mt-1">
@@ -495,15 +498,18 @@ useEffect(() => {
                       );
                     }
                     return (
-                      <div className="text-[15px] leading-snug text-lens-text font-medium">
-                        <p>{displayAddress}</p>
-                        {geo.latitude && (
-                          <p className="text-[11px] text-lens-secondary mt-1">
-                            {geo.latitude.toFixed(6)}° N, {Math.abs(geo.longitude!).toFixed(6)}° W
-                            {geo.accuracy && <span className="ml-1.5 text-lens-accent/60">±{Math.round(geo.accuracy)}m</span>}
-                          </p>
-                        )}
-                      </div>
+                      <>
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-lens-secondary mb-1.5">Address</p>
+                        <div className="text-[15px] leading-snug text-lens-text font-medium">
+                          <p>{displayAddress}</p>
+                          {geo.latitude && (
+                            <p className="text-[11px] text-lens-secondary mt-1">
+                              {geo.latitude.toFixed(6)}° N, {Math.abs(geo.longitude!).toFixed(6)}° W
+                              {geo.accuracy && <span className="ml-1.5 text-lens-accent/60">±{Math.round(geo.accuracy)}m</span>}
+                            </p>
+                          )}
+                        </div>
+                      </>
                     );
                   })()}
                 </div>
