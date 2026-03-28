@@ -471,8 +471,8 @@ useEffect(() => {
                       const houseNum = parseInt(numMatch![1], 10);
                       const rest = displayAddress.replace(/^\d+\s*/, "");
                       return (
-                        <div className="flex items-center gap-2">
-                          <HouseNumberPicker
+                        <div className="flex items-start gap-2">
+                          <div className="pt-[2px]"><HouseNumberPicker
                             currentNumber={houseNum}
                             onNumberChange={(num) => {
                               const newAddr = displayAddress.replace(/^\d+/, String(num));
@@ -481,7 +481,7 @@ useEffect(() => {
                               setSkipTraceData(null);
                               setShouldLookup(false);
                             }}
-                          />
+                          /></div>
                           <div className="flex-1 min-w-0">
                             <p className="text-[15px] leading-snug text-lens-text font-medium">{rest}</p>
                             {geo.latitude && (
