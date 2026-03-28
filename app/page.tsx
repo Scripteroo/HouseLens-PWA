@@ -473,8 +473,8 @@ useEffect(() => {
                       const houseNum = parseInt(numMatch![1], 10);
                       const rest = displayAddress.replace(/^\d+\s*/, "");
                       return (
-                        <div className="flex items-start gap-1.5">
-                          <div className="mt-[18px]"><HouseNumberPicker
+                        <div className="flex items-start gap-1.5 overflow-hidden">
+                          <div className="-mt-[6px]"><HouseNumberPicker
                             currentNumber={houseNum}
                             onNumberChange={(num) => {
                               const newAddr = displayAddress.replace(/^\d+/, String(num));
